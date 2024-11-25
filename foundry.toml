@@ -1,0 +1,15 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.23"
+via-ir = true
+optimizer = true
+optimizer_runs = 150
+
+# Dependencies
+[dependencies]
+openzeppelin-contracts = { git = "https://github.com/OpenZeppelin/openzeppelin-contracts", version = "^5.0.0" }
+openzeppelin-contracts-upgradeable = { git = "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable", version = "^5.0.0" }
+solady = { git = "https://github.com/Vectorized/solady", version = "^0.0.168" }
+forge-std = { git = "https://github.com/foundry-rs/forge-std", version = "^1.7.5" }

@@ -16,6 +16,10 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
     IHigherrrrrrr public higherrrrrrr;
     bool private initialized;
 
+    // Add constants for text limits
+    uint256 private constant MAX_INPUT_LENGTH = 1024;
+    uint256 private constant SVG_TEXT_LENGTH = 100;
+
     // Mapping from token ID to conviction details
     struct ConvictionDetails {
         string evolution; // Name of token at time of purchase
@@ -66,6 +70,7 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_ownerOf(tokenId) != address(0), "Token doesn't exist");
+        require(bytes(convictionDetails[tokenId].evolution).length <= MAX_INPUT_LENGTH, "Input string too long");
 
         ConvictionDetails memory details = convictionDetails[tokenId];
 
@@ -79,7 +84,7 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         string memory sanitizedPrice = StringSanitizer.sanitize(priceInEth, 1);
         string memory sanitizedTimestamp = StringSanitizer.sanitize(details.timestamp.toString(), 1);
 
-        // Create SVG with sanitized values
+        // Create SVG with sanitized values and text overflow handling
         string memory svg = string(
             abi.encodePacked(
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">',
@@ -87,12 +92,15 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
                 "text { font-family: monospace; fill: #4afa4a; text-anchor: middle; }",
                 ".left { text-anchor: start; }",
                 ".right { text-anchor: end; }",
+                ".evolution { inline-size: 360px; overflow-wrap: break-word; white-space: pre-wrap; }",
                 "</style>",
                 '<rect width="400" height="400" fill="#000000"/>',
-                '<text x="200" y="150" font-size="24">',
+                '<foreignObject x="20" y="120" width="360" height="80">',
+                '<div xmlns="http://www.w3.org/1999/xhtml" style="font-family: monospace; color: #4afa4a; font-size: 24px; text-align: center; overflow-wrap: break-word;">',
                 sanitizedEvolution,
-                "</text>",
-                '<text x="200" y="200" font-size="20">',
+                "</div>",
+                "</foreignObject>",
+                '<text x="200" y="240" font-size="20">',
                 sanitizedAmount,
                 " tokens</text>",
                 '<text x="20" y="380" font-size="16" class="left">',

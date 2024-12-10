@@ -2,6 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {Script, console} from "forge-std/Script.sol";
+import {Higherrrrrrr} from "../src/Higherrrrrrr.sol";
+import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
 import {HigherrrrrrrFactory} from "../src/HigherrrrrrrFactory.sol";
 import {BondingCurve} from "../src/BondingCurve.sol";
 import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
@@ -23,7 +25,13 @@ contract DeployHigherrrrrrr is Script {
 
         // Deploy Factory with fake multisig
         HigherrrrrrrFactory factory = new HigherrrrrrrFactory(
-            FAKE_MULTISIG, WETH, UNISWAP_V3_POSITION_MANAGER, UNISWAP_V3_ROUTER, address(bondingCurve)
+            FAKE_MULTISIG,
+            WETH,
+            UNISWAP_V3_POSITION_MANAGER,
+            UNISWAP_V3_ROUTER,
+            address(bondingCurve),
+            address(new Higherrrrrrr()),
+            address(new HigherrrrrrrConviction())
         );
 
         console.log("Deployed contracts:");

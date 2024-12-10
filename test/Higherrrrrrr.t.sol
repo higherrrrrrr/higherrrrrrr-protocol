@@ -88,7 +88,13 @@ contract HigherrrrrrrTest is Test {
 
         // Deploy factory
         factory = new HigherrrrrrrFactory(
-            feeRecipient, address(weth), address(positionManager), SWAP_ROUTER, address(bondingCurve)
+            feeRecipient,
+            address(weth),
+            address(positionManager),
+            SWAP_ROUTER,
+            address(bondingCurve),
+            address(new Higherrrrrrr()),
+            address(new HigherrrrrrrConviction())
         );
 
         // Create new token instance with 0.01 ETH initial liquidity
@@ -215,6 +221,10 @@ contract HigherrrrrrrTest is Test {
     function testFail_ReinitializeToken() public {
         // Try to initialize again
         token.initialize(
+            feeRecipient,
+            address(weth),
+            address(positionManager),
+            SWAP_ROUTER,
             address(bondingCurve),
             IHigherrrrrrr.TokenType.REGULAR,
             "ipfs://QmHash2",

@@ -6,10 +6,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
+import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {StringSanitizer} from "./libraries/StringSanitizer.sol";
 
-contract HigherrrrrrrConviction is ERC721, Ownable {
+contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
     using Strings for uint256;
 
     uint256 private _nextTokenId;
@@ -19,15 +20,6 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
     // Add constants for text limits
     uint256 private constant MAX_INPUT_LENGTH = 1024;
     uint256 private constant SVG_TEXT_LENGTH = 100;
-
-    // Mapping from token ID to conviction details
-    struct ConvictionDetails {
-        string evolution; // Name of token at time of purchase
-        string imageURI; // Image URI of token at time of purchase
-        uint256 amount; // Amount of tokens purchased
-        uint256 price; // Price at time of purchase
-        uint256 timestamp; // When the conviction was minted
-    }
 
     mapping(uint256 => ConvictionDetails) public convictionDetails;
 

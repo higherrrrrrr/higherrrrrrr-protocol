@@ -208,10 +208,6 @@ interface IHigherrrrrrr {
     /// @return The market state
     function state() external view returns (MarketState memory);
 
-    /// @notice Returns the URI of the token
-    /// @return The token URI
-    function tokenURI() external view returns (string memory);
-
     /// @notice Returns the name of the token
     /// @return The token name
     function name() external view returns (string memory);
@@ -234,14 +230,22 @@ interface IHigherrrrrrr {
     function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
 
     /// @notice Initializes a new Higherrrrrrr token
-    /// @param _tokenType The type of token
+    /// @param _feeRecipient The address to receive fees
+    /// @param _weth The WETH token address
+    /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
+    /// @param _swapRouter The Uniswap V3 router address
     /// @param _bondingCurve The address of the bonding curve module
-    /// @param _tokenURI The ERC20 token URI
+    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
+    /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _name The token name
     /// @param _symbol The token symbol
     /// @param _priceLevels The price levels and names
     /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
+        address _feeRecipient,
+        address _weth,
+        address _nonfungiblePositionManager,
+        address _swapRouter,
         address _bondingCurve,
         TokenType _tokenType,
         string memory _tokenURI,

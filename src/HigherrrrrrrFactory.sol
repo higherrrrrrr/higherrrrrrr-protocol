@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
-import {Higherrrrrrr} from "./Higherrrrrrr.sol";
-import {HigherrrrrrrConviction} from "./HigherrrrrrrConviction.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {Higherrrrrrr} from "./Higherrrrrrr.sol";
+import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
+import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 
 contract HigherrrrrrrFactory {
     error Unauthorized();
@@ -18,6 +18,7 @@ contract HigherrrrrrrFactory {
     address public immutable nonfungiblePositionManager;
     address public immutable swapRouter;
     address public immutable bondingCurve;
+    address public immutable tokenImplementation;
     address public immutable convictionImplementation;
 
     constructor(
@@ -25,7 +26,9 @@ contract HigherrrrrrrFactory {
         address _weth,
         address _nonfungiblePositionManager,
         address _swapRouter,
-        address _bondingCurve
+        address _bondingCurve,
+        address _tokenImplementation,
+        address _convictionImplementation
     ) {
         if (
             _feeRecipient == address(0) || _weth == address(0) || _nonfungiblePositionManager == address(0)
@@ -39,7 +42,8 @@ contract HigherrrrrrrFactory {
         bondingCurve = _bondingCurve;
 
         // Deploy the Conviction NFT implementation once
-        convictionImplementation = address(new HigherrrrrrrConviction()); // no constructor params needed
+        tokenImplementation = _tokenImplementation;
+        convictionImplementation = _convictionImplementation;
     }
 
     function createHigherrrrrrr(
@@ -49,21 +53,32 @@ contract HigherrrrrrrFactory {
         IHigherrrrrrr.TokenType _tokenType,
         IHigherrrrrrr.PriceLevel[] calldata levels
     ) external payable returns (address token, address conviction) {
-        // Deploy token
-        token = address(new Higherrrrrrr(feeRecipient, weth, nonfungiblePositionManager, swapRouter));
-
         // Clone the Conviction NFT implementation
         bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
         conviction = Clones.cloneDeterministic(convictionImplementation, salt);
 
-        // Initialize the Conviction NFT clone
-        HigherrrrrrrConviction(conviction).initialize(token);
+        // Deploy token
+        token = Clones.cloneDeterministic(tokenImplementation, salt);
 
-        // Initialize the token
         IHigherrrrrrr(token).initialize{value: msg.value}(
-            bondingCurve, _tokenType, uri, name, symbol, levels, conviction
+            feeRecipient,
+            weth,
+            nonfungiblePositionManager,
+            swapRouter,
+            bondingCurve,
+            _tokenType,
+            uri,
+            name,
+            symbol,
+            levels,
+            conviction
         );
+
+        // Initialize the Conviction NFT clone
+        IHigherrrrrrrConviction(conviction).initialize(token);
 
         emit NewToken(token, conviction);
     }
+
+    function sweep() external {}
 }

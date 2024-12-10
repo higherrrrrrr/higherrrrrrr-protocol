@@ -31,15 +31,15 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     int24 internal constant LP_TICK_LOWER = -887200;
     int24 internal constant LP_TICK_UPPER = 887200;
 
-    address public immutable WETH;
-    address public immutable nonfungiblePositionManager;
-    address public immutable swapRouter;
-    address public immutable feeRecipient;
+    address public WETH;
+    address public nonfungiblePositionManager;
+    address public swapRouter;
+    address public feeRecipient;
 
     BondingCurve public bondingCurve;
     MarketType public marketType;
     TokenType public tokenType;
-    string public tokenURI;
+    string internal basicTokenURI;
     address public poolAddress;
 
     PriceLevel[] public priceLevels;
@@ -48,25 +48,23 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     address public convictionNFT;
     uint256 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
 
-    constructor(address _feeRecipient, address _weth, address _nonfungiblePositionManager, address _swapRouter) {
-        if (_feeRecipient == address(0)) revert AddressZero();
-        if (_weth == address(0)) revert AddressZero();
-        if (_nonfungiblePositionManager == address(0)) revert AddressZero();
-        if (_swapRouter == address(0)) revert AddressZero();
-
-        feeRecipient = _feeRecipient;
-        WETH = _weth;
-        nonfungiblePositionManager = _nonfungiblePositionManager;
-        swapRouter = _swapRouter;
-    }
-
     /// @notice Initializes a new Higherrrrrrr token
+    /// @param _feeRecipient The address to receive fees
+    /// @param _weth The WETH token address
+    /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
+    /// @param _swapRouter The Uniswap V3 router address
     /// @param _bondingCurve The address of the bonding curve module
-    /// @param _tokenURI The ERC20 token URI
+    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
+    /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _name The token name
     /// @param _symbol The token symbol
     /// @param _priceLevels The price levels and names
+    /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
+        address _feeRecipient,
+        address _weth,
+        address _nonfungiblePositionManager,
+        address _swapRouter,
         address _bondingCurve,
         TokenType _tokenType,
         string memory _tokenURI,
@@ -77,15 +75,24 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     ) public payable initializer {
         // Validate the creation parameters
         if (_bondingCurve == address(0)) revert AddressZero();
+        if (_feeRecipient == address(0)) revert AddressZero();
+        if (_weth == address(0)) revert AddressZero();
+        if (_nonfungiblePositionManager == address(0)) revert AddressZero();
+        if (_swapRouter == address(0)) revert AddressZero();
 
         // Initialize base contract state
         __ERC20_init(_name, _symbol);
         __ReentrancyGuard_init();
 
+        feeRecipient = _feeRecipient;
+        WETH = _weth;
+        nonfungiblePositionManager = _nonfungiblePositionManager;
+        swapRouter = _swapRouter;
+
         // Initialize token and market state
         marketType = MarketType.BONDING_CURVE;
         tokenType = _tokenType;
-        tokenURI = _tokenURI;
+        basicTokenURI = _tokenURI;
         bondingCurve = BondingCurve(_bondingCurve);
 
         // Initialize price levels
@@ -616,7 +623,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         // If price is 0 (initial state), return first price level
         if (currentPrice == 0) {
-            currentLevel = PriceLevel(0, super.name(), tokenURI);
+            currentLevel = PriceLevel(0, super.name(), basicTokenURI);
             return (currentPrice, currentLevel);
         }
 

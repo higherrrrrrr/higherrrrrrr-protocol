@@ -22,6 +22,12 @@ contract HigherrrrrrrConvictionTest is Test {
         string expectedSVG;
     }
 
+    
+    struct PriceTest {
+        uint256 price;
+        string expectedFormat;
+    }
+
     function setUp() public {
         user1 = makeAddr("user1");
         token = makeAddr("token"); // Mock token address
@@ -557,29 +563,46 @@ contract HigherrrrrrrConvictionTest is Test {
     function test_TokenURIPriceFormatting() public {
         vm.startPrank(token);
         
-        // Test different pricing formats
-        uint256[] memory prices = new uint256[](4);
-        prices[0] = 1.5 ether;        // Price with decimals
-        prices[1] = 1 ether;          // Price int 
-        prices[2] = 0.00001 ether;    // Price very slow
-        prices[3] = 1000 ether;       // Price Higheeeer
+        
+        
+        PriceTest[] memory tests = new PriceTest[](4);
+        tests[0] = PriceTest({
+            price: 1.5 ether,
+            expectedFormat: "1.5"
+        });
+        tests[1] = PriceTest({
+            price: 1 ether,
+            expectedFormat: "1.0"
+        });
+        tests[2] = PriceTest({
+            price: 0.1 ether,
+            expectedFormat: "0.1"
+        });
+        tests[3] = PriceTest({
+            price: 1000 ether,
+            expectedFormat: "1000.0"
+        });
 
-        for (uint256 i = 0; i < prices.length; i++) {
-            uint256 tokenId = conviction.mintConviction(user1, "highrrrrrr", 1000e18, prices[i]);
+        for (uint256 i = 0; i < tests.length; i++) {
+            uint256 tokenId = conviction.mintConviction(user1, "Test", 1000e18, tests[i].price);
             string memory uri = conviction.tokenURI(tokenId);
             string memory decodedJson = decodeTokenURI(uri);
             
-            // Check if the price is present in the expected format
-            string memory expectedPrice = formatEthValue(prices[i]);
+            console2.log("\nTest Case", i);
+            console2.log("Price (wei):", tests[i].price);
+            console2.log("Expected format:", tests[i].expectedFormat);
+            console2.log("Decoded JSON:", decodedJson);
+            
             assertTrue(
-                _containsString(decodedJson, expectedPrice), 
-                string(abi.encodePacked("Price not formatted correctly for: ", expectedPrice))
+                _containsString(decodedJson, tests[i].expectedFormat), 
+                string(abi.encodePacked("Price not formatted correctly for: ", tests[i].expectedFormat))
             );
         }
         
         vm.stopPrank();
     }
 
+    
     function test_ETHDecimalFormatting() public {
         vm.startPrank(token);
 
@@ -588,42 +611,42 @@ contract HigherrrrrrrConvictionTest is Test {
         // Case 1: Integer value (1 ETH)
         testCases[0] = DecimalTestCase({
             amount: 1 ether,
-            expectedJson: "\"Price\", \"value\": \"1.0\"",
+            expectedJson: "{\"trait_type\": \"Price\", \"value\": \"1.0\"}",
             expectedSVG: "1.0 ETH"
         });
 
         // Case 2: Value with simple decimals (1.5 ETH)
         testCases[1] = DecimalTestCase({
             amount: 1500000000000000000,
-            expectedJson: "\"Price\", \"value\": \"1.500000000000000000\"",
-            expectedSVG: "1.500000000000000000 ETH"
+            expectedJson: "{\"trait_type\": \"Price\", \"value\": \"1.5\"}",
+            expectedSVG: "1.5 ETH"
         });
 
-        // Case 3: Small amount (0.0001 ETH)
+        // Case 3: Small amount (0.1 ETH)
         testCases[2] = DecimalTestCase({
-            amount: 100000000000000,
-            expectedJson: "\"Price\", \"value\": \"0.100000000000000\"",
-            expectedSVG: "0.100000000000000 ETH"
-        });
-
-        // Case 4: Very small amount (1 wei)
-        testCases[3] = DecimalTestCase({
-            amount: 1,
-            expectedJson: "\"Price\", \"value\": \"0.1\"", // The contract simplifies 0.0000000000000000001 to 0.1
+            amount: 100000000000000000,
+            expectedJson: "{\"trait_type\": \"Price\", \"value\": \"0.1\"}",
             expectedSVG: "0.1 ETH"
         });
 
-        // Case 5: Zero ETH
-        testCases[4] = DecimalTestCase({
-            amount: 0,
-            expectedJson: "\"Price\", \"value\": \"0.0\"",
-            expectedSVG: "0.0 ETH"
+        // Case 4: Very small amount with trailing significant digits (1 wei)
+        testCases[3] = DecimalTestCase({
+            amount: 1,
+            expectedJson: "{\"trait_type\": \"Price\", \"value\": \"0.000000000000000001\"}",
+            expectedSVG: "0.000000000000000001 ETH"
         });
 
-        // Case 6: Value with Complex Decimals
+        // Case 5: Zero ETH - Now returns just "0"
+        testCases[4] = DecimalTestCase({
+            amount: 0,
+            expectedJson: "{\"trait_type\": \"Price\", \"value\": \"0\"}",
+            expectedSVG: "0 ETH"
+        });
+
+        // Case 6: Value with Complex Decimals (all digits significant)
         testCases[5] = DecimalTestCase({
             amount: 1234567890123456789,
-            expectedJson: "\"Price\", \"value\": \"1.234567890123456789\"",
+            expectedJson: "{\"trait_type\": \"Price\", \"value\": \"1.234567890123456789\"}",
             expectedSVG: "1.234567890123456789 ETH"
         });
 
@@ -634,7 +657,7 @@ contract HigherrrrrrrConvictionTest is Test {
             string memory uri = conviction.tokenURI(tokenId);
             string memory decodedJson = decodeTokenURI(uri);
             
-            // Debug output expand
+            // Debug output
             console2.log("\nTest Case", i);
             console2.log("Amount (wei):", tc.amount);
             console2.log("Expected JSON format:", tc.expectedJson);
@@ -648,13 +671,12 @@ contract HigherrrrrrrConvictionTest is Test {
             // Check formatting in JSON
             bool containsExpectedJson = _containsString(decodedJson, tc.expectedJson);
             if (!containsExpectedJson) {
-                string memory priceAttribute = string(abi.encodePacked("\"Price\", \"value\": \"", tc.expectedJson, "\""));
-                console2.log("Looking for price attribute:", priceAttribute);
+                console2.log("Looking for JSON pattern:", tc.expectedJson);
                 console2.log("In JSON:", decodedJson);
             }
             assertTrue(containsExpectedJson, "JSON should contain correct price format");
 
-            // Check formatting in JSON
+            // Check formatting in SVG
             bool containsExpectedSvg = _containsString(svgContent, tc.expectedSVG);
             if (!containsExpectedSvg) {
                 console2.log("SVG format mismatch");
@@ -670,4 +692,6 @@ contract HigherrrrrrrConvictionTest is Test {
 
         vm.stopPrank();
     }
+
+  
 }

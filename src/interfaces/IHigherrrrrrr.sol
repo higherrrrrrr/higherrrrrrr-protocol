@@ -224,10 +224,24 @@ interface IHigherrrrrrr {
     /// @return The current price in ETH
     function getCurrentPrice() external view returns (uint256);
 
+    /// @notice Uniswap V3 LP Position ID
+    /// @return The LP NFT ID
+    function positionId() external view returns (uint256);
+
     /// @notice Returns the current price level
     /// @return currentPrice The current price in ETH
     /// @return currentLevel The current price level
     function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
+
+    /// @notice Returns the available fees for the position
+    /// @return tokensOwed0 The number of WETH tokens owed to the position
+    /// @return tokensOwed1 The number of tokens owed to the position
+    function availableFees() external view returns (uint128, uint128);
+
+    /// @notice Collects fees from the position
+    /// @return amount0 The number of token0 collected
+    /// @return amount1 The number of token1 collected
+    function collectFees() external returns (uint256, uint256);
 
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _feeRecipient The address to receive fees

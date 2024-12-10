@@ -48,6 +48,8 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     address public convictionNFT;
     uint256 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
 
+    uint256 public positionId;
+
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _feeRecipient The address to receive fees
     /// @param _weth The WETH token address
@@ -550,10 +552,50 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         });
 
         // Mint the liquidity position to this contract. It will be non-transferable and fees will be non-claimable.
-        (uint256 positionId,,,) = INonfungiblePositionManager(nonfungiblePositionManager).mint(params);
+        (positionId,,,) = INonfungiblePositionManager(nonfungiblePositionManager).mint(params);
 
         emit HigherrrrrrMarketGraduated(
             address(this), poolAddress, ethLiquidity, SECONDARY_MARKET_SUPPLY, positionId, marketType
+        );
+    }
+
+    /// @notice Returns the available fees for the position
+    /// @return tokensOwed0 The amount of WETH tokens owed to the position
+    /// @return tokensOwed1 The amount of tokens owed to the position
+    function availableFees() external view returns (uint128, uint128) {
+        (
+            , // uint96 nonce,
+            , // address operator,
+            address token0,
+            , // address token1,
+            , // uint24 fee,
+            , // int24 tickLower,
+            , // int24 tickUpper,
+            , // uint128 liquidity,
+            , // uint256 feeGrowthInside0LastX128,
+            , // uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        ) = INonfungiblePositionManager(nonfungiblePositionManager).positions(positionId);
+
+        if (token0 == address(WETH)) {
+            return (tokensOwed0, tokensOwed1);
+        } else {
+            return (tokensOwed1, tokensOwed0);
+        }
+    }
+
+    /// @notice Collects fees from the position
+    /// @return amount0 The amount of token0 collected
+    /// @return amount1 The amount of token1 collected
+    function collectFees() external returns (uint256, uint256) {
+        return INonfungiblePositionManager(nonfungiblePositionManager).collect(
+            INonfungiblePositionManager.CollectParams({
+                tokenId: positionId,
+                recipient: feeRecipient,
+                amount0Max: type(uint128).max,
+                amount1Max: type(uint128).max
+            })
         );
     }
 

@@ -21,6 +21,8 @@ contract HigherrrrrrrFactory {
     address public immutable tokenImplementation;
     address public immutable convictionImplementation;
 
+    address[] public tokens;
+
     constructor(
         address _feeRecipient,
         address _weth,
@@ -77,8 +79,31 @@ contract HigherrrrrrrFactory {
         // Initialize the Conviction NFT clone
         IHigherrrrrrrConviction(conviction).initialize(token);
 
+        tokens.push(token);
         emit NewToken(token, conviction);
     }
 
-    function sweep() external {}
+    function getTokensWithETHFeesAboveThreshold(uint128 threshold) public view returns (address[] memory) {
+        address[] memory tokensToCollect = new address[](tokens.length);
+        address token;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            token = tokens[i];
+            (uint128 ethOwed,) = IHigherrrrrrr(token).availableFees();
+            if (ethOwed >= threshold) {
+                tokensToCollect[i] = token;
+            }
+        }
+        return tokensToCollect;
+    }
+
+    function collectFees(address[] memory tokensToCollect) public {
+        for (uint256 i = 0; i < tokensToCollect.length; i++) {
+            if (tokensToCollect[i] == address(0)) continue;
+            IHigherrrrrrr(tokensToCollect[i]).collectFees();
+        }
+    }
+
+    function collectAllFees() external {
+        collectFees(tokens);
+    }
 }

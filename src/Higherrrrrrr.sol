@@ -39,16 +39,15 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     BondingCurve public bondingCurve;
     MarketType public marketType;
     TokenType public tokenType;
-    string internal basicTokenURI;
     address public poolAddress;
-
-    PriceLevel[] public priceLevels;
-    uint256 public numPriceLevels;
-
     address public convictionNFT;
-    uint256 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
 
+    uint16 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
+    uint256 public numPriceLevels;
     uint256 public positionId;
+
+    string internal basicTokenURI;
+    PriceLevel[] public priceLevels;
 
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _feeRecipient The address to receive fees
@@ -105,9 +104,18 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         priceLevels = _priceLevels;
 
         // Determine the token0, token1, and sqrtPriceX96 values for the Uniswap V3 pool
-        address token0 = WETH < address(this) ? WETH : address(this);
-        address token1 = WETH < address(this) ? address(this) : WETH;
-        uint160 sqrtPriceX96 = token0 == WETH ? POOL_SQRT_PRICE_X96_WETH_0 : POOL_SQRT_PRICE_X96_TOKEN_0;
+        address token0;
+        address token1;
+        uint160 sqrtPriceX96;
+        if (WETH < address(this)) {
+            token0 = WETH;
+            token1 = address(this);
+            sqrtPriceX96 = POOL_SQRT_PRICE_X96_WETH_0;
+        } else {
+            token0 = address(this);
+            token1 = WETH;
+            sqrtPriceX96 = POOL_SQRT_PRICE_X96_TOKEN_0;
+        }
 
         // Create and initialize the Uniswap V3 pool
         poolAddress = INonfungiblePositionManager(nonfungiblePositionManager).createAndInitializePoolIfNecessary(
@@ -154,14 +162,15 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         bool shouldGraduateMarket;
 
         if (marketType == MarketType.UNISWAP_POOL) {
-            // Calculate the fee
-            fee = _calculateFee(msg.value, TOTAL_FEE_BPS);
-
-            // Calculate the remaining ETH
-            totalCost = msg.value - fee;
+            unchecked {
+                // Calculate the fee
+                fee = _calculateFee(msg.value, TOTAL_FEE_BPS);
+                // Calculate the remaining ETH
+                totalCost = msg.value - fee;
+            }
 
             // Handle the fees
-            _disperseFees(fee, address(0));
+            _disperseFees(fee);
 
             // Convert the ETH to WETH and approve the swap router
             IWETH(WETH).deposit{value: totalCost}();
@@ -190,13 +199,10 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
             _mint(recipient, trueOrderSize);
 
             // Handle the fees
-            _disperseFees(fee, address(0));
+            _disperseFees(fee);
 
             // Refund any excess ETH
-            if (refund > 0) {
-                (bool success,) = refundRecipient.call{value: refund}("");
-                if (!success) revert EthTransferFailed();
-            }
+            _sendETH(refundRecipient, refund);
         }
 
         // Start the market if this is the final bonding market buy order.
@@ -267,18 +273,22 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
             truePayoutSize = _handleBondingCurveSell(tokensToSell, minPayoutSize);
         }
 
-        // Calculate the fee
-        uint256 fee = _calculateFee(truePayoutSize, TOTAL_FEE_BPS);
+        uint256 fee;
+        uint256 payoutAfterFee;
 
-        // Calculate the payout after the fee
-        uint256 payoutAfterFee = truePayoutSize - fee;
+        unchecked {
+            // Calculate the fee
+            fee = _calculateFee(truePayoutSize, TOTAL_FEE_BPS);
 
-        // Handle the fees
-        _disperseFees(fee, address(0));
+            // Calculate the payout after the fee
+            payoutAfterFee = truePayoutSize - fee;
 
-        // Send the payout to the recipient
-        (bool success,) = recipient.call{value: payoutAfterFee}("");
-        if (!success) revert EthTransferFailed();
+            // Handle the fees
+            _disperseFees(fee);
+
+            // Send the payout to the recipient
+            _sendETH(recipient, payoutAfterFee);
+        }
 
         emit HigherrrrrrTokenSell(
             msg.sender,
@@ -412,11 +422,13 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         // Calculate the fee
         fee = _calculateFee(totalCost, TOTAL_FEE_BPS);
 
-        // Calculate the amount of ETH remaining for the order
-        uint256 remainingEth = totalCost - fee;
+        unchecked {
+            // Calculate the amount of ETH remaining for the order
+            uint256 remainingEth = totalCost - fee;
 
-        // Get quote for the number of tokens that can be bought with the amount of ETH remaining
-        trueOrderSize = bondingCurve.getEthBuyQuote(totalSupply(), remainingEth);
+            // Get quote for the number of tokens that can be bought with the amount of ETH remaining
+            trueOrderSize = bondingCurve.getEthBuyQuote(totalSupply(), remainingEth);
+        }
 
         // Ensure the order size is greater than the minimum order size
         if (trueOrderSize < minOrderSize) revert SlippageBoundsExceeded();
@@ -445,7 +457,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
             // Refund any excess ETH
             if (msg.value > totalCost) {
-                refund = msg.value - totalCost;
+                unchecked {
+                    refund = msg.value - totalCost;
+                }
             }
 
             startMarket = true;
@@ -520,10 +534,21 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         // Determine the token order
         bool isWethToken0 = address(WETH) < address(this);
-        address token0 = isWethToken0 ? WETH : address(this);
-        address token1 = isWethToken0 ? address(this) : WETH;
-        uint256 amount0 = isWethToken0 ? ethLiquidity : SECONDARY_MARKET_SUPPLY;
-        uint256 amount1 = isWethToken0 ? SECONDARY_MARKET_SUPPLY : ethLiquidity;
+        address token0;
+        address token1;
+        uint256 amount0;
+        uint256 amount1;
+        if (isWethToken0) {
+            token0 = WETH;
+            token1 = address(this);
+            amount0 = ethLiquidity;
+            amount1 = SECONDARY_MARKET_SUPPLY;
+        } else {
+            token0 = address(this);
+            token1 = WETH;
+            amount0 = SECONDARY_MARKET_SUPPLY;
+            amount1 = ethLiquidity;
+        }
 
         // Get the current and desired price of the pool
 
@@ -563,20 +588,8 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @return tokensOwed0 The amount of WETH tokens owed to the position
     /// @return tokensOwed1 The amount of tokens owed to the position
     function availableFees() external view returns (uint128, uint128) {
-        (
-            , // uint96 nonce,
-            , // address operator,
-            address token0,
-            , // address token1,
-            , // uint24 fee,
-            , // int24 tickLower,
-            , // int24 tickUpper,
-            , // uint128 liquidity,
-            , // uint256 feeGrowthInside0LastX128,
-            , // uint256 feeGrowthInside1LastX128,
-            uint128 tokensOwed0,
-            uint128 tokensOwed1
-        ) = INonfungiblePositionManager(nonfungiblePositionManager).positions(positionId);
+        (,, address token0,,,,,,,, uint128 tokensOwed0, uint128 tokensOwed1) =
+            INonfungiblePositionManager(nonfungiblePositionManager).positions(positionId);
 
         if (token0 == address(WETH)) {
             return (tokensOwed0, tokensOwed1);
@@ -600,13 +613,19 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     }
 
     /// @dev Handles calculating and sending fees directly to the fee recipient
-    function _disperseFees(uint256 _fee, address) internal {
-        if (_fee > 0) {
-            (bool success,) = feeRecipient.call{value: _fee}("");
-            if (!success) revert EthTransferFailed();
-
+    function _disperseFees(uint256 _fee) internal {
+        if (_sendETH(feeRecipient, _fee)) {
             emit HigherrrrrrTokenFees(feeRecipient, _fee);
         }
+    }
+
+    function _sendETH(address to, uint256 amount) internal returns (bool success) {
+        if (amount == 0) {
+            return false;
+        }
+
+        (success,) = to.call{value: amount}("");
+        if (!success) revert EthTransferFailed();
     }
 
     /// @dev Calculates the fee for a given amount and basis points.
@@ -671,11 +690,13 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         // Find the highest price level that's below current price
         uint256 highestQualifyingPrice = 0;
+        PriceLevel storage priceLevel; // for gas optimization
 
         for (uint256 i = 0; i < numPriceLevels; i++) {
-            if (currentPrice >= priceLevels[i].price && priceLevels[i].price > highestQualifyingPrice) {
-                highestQualifyingPrice = priceLevels[i].price;
-                currentLevel = priceLevels[i];
+            priceLevel = priceLevels[i];
+            if (currentPrice >= priceLevel.price && priceLevel.price > highestQualifyingPrice) {
+                highestQualifyingPrice = priceLevel.price;
+                currentLevel = priceLevel;
             }
         }
 

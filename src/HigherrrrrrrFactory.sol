@@ -84,15 +84,18 @@ contract HigherrrrrrrFactory {
     }
 
     function getTokensWithETHFeesAboveThreshold(uint128 threshold) public view returns (address[] memory) {
-        address[] memory tokensToCollect = new address[](tokens.length);
+        uint256 tokenCount = tokens.length;
+        address[] memory tokensToCollect = new address[](tokenCount);
+
         address token;
-        for (uint256 i = 0; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokenCount; i++) {
             token = tokens[i];
             (uint128 ethOwed,) = IHigherrrrrrr(token).availableFees();
             if (ethOwed >= threshold) {
                 tokensToCollect[i] = token;
             }
         }
+
         return tokensToCollect;
     }
 

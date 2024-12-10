@@ -18,8 +18,8 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
     bool private initialized;
 
     // Add constants for text limits
-    uint256 private constant MAX_INPUT_LENGTH = 1024;
-    uint256 private constant SVG_TEXT_LENGTH = 100;
+    uint16 private constant MAX_INPUT_LENGTH = 1024;
+    uint16 private constant SVG_TEXT_LENGTH = 100;
 
     mapping(uint256 => ConvictionDetails) public convictionDetails;
 
@@ -82,10 +82,10 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
             imageURI = details.imageURI;
         } else {
             // Sanitize strings for SVG context
-            string memory sanitizedEvolution = StringSanitizer.sanitize(details.evolution, 1);
-            string memory sanitizedAmount = StringSanitizer.sanitize((details.amount / 1e18).toString(), 1);
-            string memory sanitizedPrice = StringSanitizer.sanitize(priceInEth, 1);
-            string memory sanitizedTimestamp = StringSanitizer.sanitize(details.timestamp.toString(), 1);
+            string memory sanitizedEvolution = StringSanitizer.sanitizeSVG(details.evolution);
+            string memory sanitizedAmount = StringSanitizer.sanitizeSVG((details.amount / 1e18).toString());
+            string memory sanitizedPrice = StringSanitizer.sanitizeSVG(priceInEth);
+            string memory sanitizedTimestamp = StringSanitizer.sanitizeSVG(details.timestamp.toString());
 
             // Create SVG with sanitized values and text overflow handling
             string memory svg = string(
@@ -119,11 +119,11 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
         }
 
         // Sanitize strings for JSON context
-        string memory sanitizedEvolutionJson = StringSanitizer.sanitize(details.evolution, 2);
-        string memory sanitizedAmountJson = StringSanitizer.sanitize((details.amount / 1e18).toString(), 2);
-        string memory sanitizedPriceJson = StringSanitizer.sanitize(priceInEth, 2);
-        string memory sanitizedTimestampJson = StringSanitizer.sanitize(details.timestamp.toString(), 2);
-        string memory sanitizedTokenId = StringSanitizer.sanitize(tokenId.toString(), 2);
+        string memory sanitizedEvolutionJson = StringSanitizer.sanitizeJSON(details.evolution);
+        string memory sanitizedAmountJson = StringSanitizer.sanitizeJSON((details.amount / 1e18).toString());
+        string memory sanitizedPriceJson = StringSanitizer.sanitizeJSON(priceInEth);
+        string memory sanitizedTimestampJson = StringSanitizer.sanitizeJSON(details.timestamp.toString());
+        string memory sanitizedTokenId = StringSanitizer.sanitizeJSON(tokenId.toString());
 
         // Create metadata with sanitized values
         string memory json = Base64.encode(

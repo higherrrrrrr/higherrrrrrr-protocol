@@ -68,17 +68,17 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         marketType = state.marketType;
     }
 
-    function formatEthPrice(uint256 weiAmount) public pure returns (string memory) {        
+    function formatEthPrice(uint256 weiAmount) public pure returns (string memory) {
         if (weiAmount == 0) {
             return "0";
         }
 
         // Calculate the whole ETH part
         uint256 ethPart = weiAmount / 1e18;
-        
+
         // Calculate the decimal part (wei remainder)
         uint256 decimalPart = weiAmount % 1e18;
-        
+
         // If there's no decimal part, return just the whole number with .0
         if (decimalPart == 0) {
             return string.concat(Strings.toString(ethPart), ".0");
@@ -87,51 +87,47 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         // Convert decimal part to string
         string memory decimalStr = Strings.toString(decimalPart);
         uint256 decimalLength = bytes(decimalStr).length;
-        
+
         if (decimalLength > 18) {
             revert("Invalid decimal length");
         }
-        
+
         // Padding with zeros
         bytes memory paddedDecimal = new bytes(18);
         uint256 padLength = 18 - decimalLength;
-        
+
         // Fill with leading zeros
         for (uint256 i = 0; i < padLength; i++) {
             paddedDecimal[i] = bytes1("0");
         }
-        
+
         // Copy decimal digits
         bytes memory decimalBytes = bytes(decimalStr);
         for (uint256 i = 0; i < decimalLength; i++) {
             paddedDecimal[i + padLength] = decimalBytes[i];
         }
-        
+
         // Find last significant digit (non-zero)
         uint256 lastSignificant = 18;
         for (uint256 i = 18; i > 0; i--) {
-            if (paddedDecimal[i-1] != bytes1("0")) {
+            if (paddedDecimal[i - 1] != bytes1("0")) {
                 lastSignificant = i;
                 break;
             }
         }
-        
+
         // Optimize for whole numbers
         if (lastSignificant == 0) {
             return string.concat(Strings.toString(ethPart), ".0");
         }
-        
+
         // Create final decimal part with exact size
         bytes memory finalDecimal = new bytes(lastSignificant);
         for (uint256 i = 0; i < lastSignificant; i++) {
             finalDecimal[i] = paddedDecimal[i];
         }
-        
-        return string.concat(
-            Strings.toString(ethPart),
-            ".",
-            string(finalDecimal)
-        );
+
+        return string.concat(Strings.toString(ethPart), ".", string(finalDecimal));
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -142,7 +138,6 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
 
         // Format price in ETH (assuming price is in wei)
         string memory priceInEth = formatEthPrice(details.price);
-            
 
         // Sanitize strings for SVG context
         string memory sanitizedEvolution = StringSanitizer.sanitize(details.evolution, 1);

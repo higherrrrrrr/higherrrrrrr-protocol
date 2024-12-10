@@ -27,6 +27,7 @@ contract HigherrrrrrrTest is Test {
     address public user2;
 
     IHigherrrrrrr.PriceLevel[] priceLevels;
+    IHigherrrrrrr.ImageLevel[] imageLevels;
 
     // Add Uniswap pool price constants
     uint160 public constant POOL_SQRT_PRICE_X96_WETH_0 = 400950665883918763141200546267337;
@@ -81,6 +82,37 @@ contract HigherrrrrrrTest is Test {
             })
         );
 
+        imageLevels.push(
+            IHigherrrrrrr.ImageLevel({
+                price: 1_000_000_000, // 1 gwei
+                imageUri: "ipfs://QmHash1"
+            })
+        );
+        imageLevels.push(
+            IHigherrrrrrr.ImageLevel({
+                price: 5_000_000_000, // 5 gwei
+                imageUri: "ipfs://QmHash2"
+            })
+        );
+        imageLevels.push(
+            IHigherrrrrrr.ImageLevel({
+                price: 10_000_000_000, // 10 gwei
+                imageUri: "ipfs://QmHash3"
+            })
+        );
+        imageLevels.push(
+            IHigherrrrrrr.ImageLevel({
+                price: 50_000_000_000, // 50 gwei
+                imageUri: "ipfs://QmHash4"
+            })
+        );
+        imageLevels.push(
+            IHigherrrrrrr.ImageLevel({
+                price: 100_000_000_000, // 100 gwei
+                imageUri: "ipfs://QmHash5"
+            })
+        );
+
         // Deploy factory
         factory = new HigherrrrrrrFactory(
             feeRecipient, address(weth), address(positionManager), SWAP_ROUTER, address(bondingCurve)
@@ -92,7 +124,9 @@ contract HigherrrrrrrTest is Test {
             "highr", // Initial name
             "HIGHR", // Symbol
             "ipfs://QmHash", // Token URI
-            priceLevels
+            priceLevels,
+            new IHigherrrrrrr.ImageLevel[](0),
+            IHigherrrrrrr.TokenType.TEXT_EVOLUTION
         );
 
         token = Higherrrrrrr(payable(tokenAddress));
@@ -208,7 +242,16 @@ contract HigherrrrrrrTest is Test {
     // Security Tests
     function testFail_ReinitializeToken() public {
         // Try to initialize again
-        token.initialize(address(bondingCurve), "ipfs://QmHash2", "highr2", "HIGHR2", priceLevels, address(conviction));
+        token.initialize(
+            address(bondingCurve),
+            "ipfs://QmHash2",
+            "highr2",
+            "HIGHR2",
+            priceLevels,
+            new IHigherrrrrrr.ImageLevel[](0),
+            address(conviction),
+            IHigherrrrrrr.TokenType.TEXT_EVOLUTION
+        );
     }
 
     function testFail_UnauthorizedConvictionMint() public {
@@ -362,22 +405,18 @@ contract HigherrrrrrrTest is Test {
         vm.deal(user1, 100 ether);
 
         // 1. Small buy - first evolution
-        uint256 tokens = token.buy{value: 0.001 ether}(
-            user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
-        );
+        uint256 tokens = token.buy{value: 0.001 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // 2. Medium buy - second evolution + NFT mint
-        tokens = token.buy{value: 0.6 ether}(
-            user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
-        );
+        tokens = token.buy{value: 0.6 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // 3. Large buy - graduate to Uniswap
-        tokens = token.buy{value: 8 ether}(
-            user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
-        );
+        tokens = token.buy{value: 8 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // Verify graduation
-        assertEq(uint256(token.marketType()), uint256(IHigherrrrrrr.MarketType.UNISWAP_POOL), "Should graduate to Uniswap");
+        assertEq(
+            uint256(token.marketType()), uint256(IHigherrrrrrr.MarketType.UNISWAP_POOL), "Should graduate to Uniswap"
+        );
         address poolAddress = token.poolAddress();
         assertTrue(poolAddress != address(0), "Pool should be created");
 
@@ -388,4 +427,85 @@ contract HigherrrrrrrTest is Test {
 
         vm.stopPrank();
     }
+
+    function test_RegularToken() public {
+        (address tokenAddress,) = factory.createHigherrrrrrr{value: 0.01 ether}(
+            "Regular",
+            "REG",
+            "ipfs://QmHash",
+            priceLevels,
+            new IHigherrrrrrr.ImageLevel[](0),
+            IHigherrrrrrr.TokenType.REGULAR
+        );
+
+        Higherrrrrrr regularToken = Higherrrrrrr(payable(tokenAddress));
+
+        // Name should stay constant regardless of price
+        assertEq(regularToken.name(), "Regular");
+
+        vm.startPrank(user1);
+        vm.deal(user1, 10 ether);
+        regularToken.buy{value: 5 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
+
+        // Name should still be the same after price increase
+        assertEq(regularToken.name(), "Regular");
+        vm.stopPrank();
+    }
+
+    function test_TextEvolutionToken() public {
+        // Already tested in test_PriceLevelProgression()
+        // Just verify the token type
+        assertEq(uint256(token.tokenType()), uint256(IHigherrrrrrr.TokenType.TEXT_EVOLUTION));
+    }
+
+    function testFail_InvalidImageUri() public {
+        // Create invalid image levels with malicious URI
+        IHigherrrrrrr.ImageLevel[] memory invalidImageLevels = new IHigherrrrrrr.ImageLevel[](1);
+        invalidImageLevels[0] = IHigherrrrrrr.ImageLevel({price: 1_000_000_000, imageUri: "javascript:alert('xss')"});
+
+        // Should revert due to invalid URI
+        factory.createHigherrrrrrr{value: 0.01 ether}(
+            "InvalidImage",
+            "INVALID",
+            "ipfs://QmHash",
+            priceLevels,
+            invalidImageLevels,
+            IHigherrrrrrr.TokenType.IMAGE_EVOLUTION
+        );
+    }
+
+    function testFail_EmptyImageLevels() public {
+        // Try to create IMAGE_EVOLUTION token without image levels
+        IHigherrrrrrr.ImageLevel[] memory emptyImageLevels;
+
+        factory.createHigherrrrrrr{value: 0.01 ether}(
+            "NoImages", "NIMG", "ipfs://QmHash", priceLevels, emptyImageLevels, IHigherrrrrrr.TokenType.IMAGE_EVOLUTION
+        );
+    }
+
+    function test_RegularTokenWithImageLevels() public {
+        // Should allow creation of regular token with empty image levels
+        IHigherrrrrrr.ImageLevel[] memory emptyImageLevels;
+
+        (address tokenAddress,) = factory.createHigherrrrrrr{value: 0.01 ether}(
+            "Regular", "REG", "ipfs://QmHash", priceLevels, emptyImageLevels, IHigherrrrrrr.TokenType.REGULAR
+        );
+
+        Higherrrrrrr regularToken = Higherrrrrrr(payable(tokenAddress));
+
+        // Name should remain constant
+        assertEq(regularToken.name(), "Regular");
+        assertEq(regularToken.getCurrentImageUri(), "");
+
+        // Buy some tokens
+        vm.startPrank(user1);
+        vm.deal(user1, 10 ether);
+        regularToken.buy{value: 5 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
+
+        // Name and URI should still be the same
+        assertEq(regularToken.name(), "Regular");
+        assertEq(regularToken.getCurrentImageUri(), "");
+        vm.stopPrank();
+    }
+
 }

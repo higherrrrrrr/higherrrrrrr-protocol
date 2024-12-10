@@ -23,7 +23,7 @@ contract MockPositionManager {
         return pool;
     }
 
-    function mint(MintParams calldata params)
+    function mint(MintParams calldata)
         external
         payable
         returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)

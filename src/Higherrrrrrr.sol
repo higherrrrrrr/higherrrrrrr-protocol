@@ -7,6 +7,7 @@ import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/
 import "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {INonfungiblePositionManager} from "./interfaces/INonfungiblePositionManager.sol";
@@ -20,6 +21,8 @@ import {HigherrrrrrrConviction} from "./HigherrrrrrrConviction.sol";
     higherrrrrrr
 */
 contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, ReentrancyGuardUpgradeable, IERC721Receiver {
+    using Strings for uint256;
+
     uint256 public constant MAX_TOTAL_SUPPLY = 1_000_000_000e18; // 1B tokens
     uint256 internal constant PRIMARY_MARKET_SUPPLY = 800_000_000e18; // 800M tokens
     uint256 internal constant SECONDARY_MARKET_SUPPLY = 200_000_000e18; // 200M tokens
@@ -38,11 +41,15 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
     BondingCurve public bondingCurve;
     MarketType public marketType;
+    TokenType public tokenType;
     string public tokenURI;
     address public poolAddress;
 
     PriceLevel[] public priceLevels;
     uint256 public numPriceLevels;
+
+    ImageLevel[] public imageLevels;
+    uint256 public numImageLevels;
 
     address public convictionNFT;
     uint256 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
@@ -65,16 +72,22 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @param _name The token name
     /// @param _symbol The token symbol
     /// @param _priceLevels The price levels and names
+    /// @param _imageLevels Array of price levels and corresponding image URIs (required for IMAGE_EVOLUTION type)
+    /// @param _tokenType The type of token (REGULAR, TEXT_EVOLUTION, or IMAGE_EVOLUTION)
+    /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
         address _bondingCurve,
         string memory _tokenURI,
         string memory _name,
         string memory _symbol,
         PriceLevel[] calldata _priceLevels,
-        address _convictionNFT
+        ImageLevel[] calldata _imageLevels,
+        address _convictionNFT,
+        TokenType _tokenType
     ) public payable initializer {
         // Validate the creation parameters
         if (_bondingCurve == address(0)) revert AddressZero();
+        if (_priceLevels.length == 0) revert NoPriceLevels();
 
         // Initialize base contract state
         __ERC20_init(_name, _symbol);
@@ -84,13 +97,27 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         marketType = MarketType.BONDING_CURVE;
         tokenURI = _tokenURI;
         bondingCurve = BondingCurve(_bondingCurve);
-
-        // Initialize price levels
-        if (_priceLevels.length == 0) revert NoPriceLevels();
+        tokenType = _tokenType;
 
         // Store price levels without sorting
         numPriceLevels = _priceLevels.length;
         priceLevels = _priceLevels;
+
+        // Handle image levels based on token type
+        if (_tokenType == TokenType.IMAGE_EVOLUTION) {
+            // Validate image levels for IMAGE_EVOLUTION type
+            if (_imageLevels.length == 0) revert NoImageLevels();
+            if (_imageLevels.length != _priceLevels.length) revert ImageLevelMismatch();
+
+            numImageLevels = _imageLevels.length;
+            for (uint256 i = 0; i < _imageLevels.length; i++) {
+                if (bytes(_imageLevels[i].imageUri).length == 0) revert InvalidImageURI();
+                if (_imageLevels[i].price != _priceLevels[i].price) revert PriceMismatch();
+                imageLevels.push(_imageLevels[i]);
+            }
+        } else {
+            numImageLevels = 0;
+        }
 
         // Determine the token0, token1, and sqrtPriceX96 values for the Uniswap V3 pool
         address token0 = WETH < address(this) ? WETH : address(this);
@@ -552,28 +579,46 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     }
 
     function name() public view virtual override(ERC20Upgradeable, IHigherrrrrrr) returns (string memory) {
+        if (tokenType == TokenType.REGULAR) {
+            return super.name();
+        }
         // Get the current price based on market type
-        uint256 currentPrice;
-        currentPrice = getCurrentPrice();
+        uint256 currentPrice = getCurrentPrice();
 
         // If price is 0 (initial state), return base name
         if (currentPrice == 0) {
             return super.name();
         }
 
-        // Find the highest price level that's below current price
-        string memory currentName = super.name();
-        uint256 highestQualifyingPrice = 0;
+        // For text evolution type, use the existing price level logic
+        if (tokenType == TokenType.TEXT_EVOLUTION) {
+            // Find the highest price level that's below current price
+            string memory currentName = super.name();
+            uint256 highestQualifyingPrice = 0;
 
-        // Single pass through price levels to find highest qualifying price
-        for (uint256 i = 0; i < numPriceLevels; i++) {
-            if (currentPrice >= priceLevels[i].price && priceLevels[i].price > highestQualifyingPrice) {
-                highestQualifyingPrice = priceLevels[i].price;
-                currentName = priceLevels[i].name;
+            // Single pass through price levels to find highest qualifying price
+            for (uint256 i = 0; i < numPriceLevels; i++) {
+                if (currentPrice >= priceLevels[i].price && priceLevels[i].price > highestQualifyingPrice) {
+                    highestQualifyingPrice = priceLevels[i].price;
+                    currentName = priceLevels[i].name;
+                }
             }
+
+            return currentName;
         }
 
-        return currentName;
+        // For image evolution type, append the current price level to the base name
+        if (tokenType == TokenType.IMAGE_EVOLUTION) {
+            uint256 level = 0;
+            for (uint256 i = 0; i < numPriceLevels; i++) {
+                if (currentPrice >= priceLevels[i].price) {
+                    level = i + 1;
+                }
+            }
+            return string(abi.encodePacked(super.name(), " Lvl ", level.toString()));
+        }
+
+        return super.name();
     }
 
     // Helper function to get current price from Uniswap pool
@@ -603,5 +648,28 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice Returns all price levels and their corresponding names
     function getPriceLevels() external view returns (PriceLevel[] memory) {
         return priceLevels;
+    }
+
+    function getCurrentImageUri() public view returns (string memory) {
+        if (tokenType != TokenType.IMAGE_EVOLUTION) {
+            return "";
+        }
+
+        uint256 currentPrice = getCurrentPrice();
+
+        // If no level has been reached, it returns an empty string.
+        if (currentPrice < imageLevels[0].price) {
+            return "";
+        }
+
+        // Find the current image level
+        string memory currentUri = "";
+        for (uint256 i = 0; i < numImageLevels; i++) {
+            if (currentPrice >= imageLevels[i].price) {
+                currentUri = imageLevels[i].imageUri;
+            }
+        }
+
+        return currentUri;
     }
 }

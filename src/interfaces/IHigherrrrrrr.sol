@@ -47,10 +47,32 @@ interface IHigherrrrrrr {
     /// @notice Thrown when price levels are invalid
     error InvalidPriceLevels();
 
+    /// @notice Thrown when attempting to create an IMAGE_EVOLUTION token without providing any image level definitions.
+    error NoImageLevels();
+
+    /// @notice Thrown when the number of image levels does not match the number of price levels for an IMAGE_EVOLUTION token.
+    error ImageLevelMismatch();
+
+    /// @notice Thrown when an invalid image URI is provided during token initialization.
+    error InvalidImageURI();
+
+    /// @notice Thrown when there is a mismatch between price levels and image levels prices.
+    error PriceMismatch();
+
+    /// @notice Thrown when the ETH value sent with a transaction is insufficient for the requested operation.
+    error InsufficientValue();
+
     /// @notice Represents the type of market
     enum MarketType {
         BONDING_CURVE,
         UNISWAP_POOL
+    }
+
+    /// @notice Represents a token type
+    enum TokenType {
+        REGULAR,
+        TEXT_EVOLUTION,
+        IMAGE_EVOLUTION
     }
 
     /// @notice Represents the state of the market
@@ -63,6 +85,12 @@ interface IHigherrrrrrr {
     struct PriceLevel {
         uint256 price;
         string name;
+    }
+
+    /// @notice Represents a image level
+    struct ImageLevel {
+        uint256 price;
+        string imageUri;
     }
 
     /// @notice Emitted when a token is bought
@@ -216,12 +244,21 @@ interface IHigherrrrrrr {
     /// @return The current price in ETH
     function getCurrentPrice() external view returns (uint256);
 
+    /// @notice Returns the current image URI for the token based on its type and price level
+    /// @dev For REGULAR and TEXT_EVOLUTION types, returns the base tokenURI.
+    ///      For IMAGE_EVOLUTION type, returns the imageUri corresponding to the current price level.
+    ///      If the current price is below the first level threshold, returns the base tokenURI.
+    /// @return string The current image URI. Format is typically an IPFS URI (e.g., "ipfs://...")
+    function getCurrentImageUri() external view returns (string memory);
+
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _bondingCurve The address of the bonding curve module
     /// @param _tokenURI The ERC20 token URI
     /// @param _name The token name
     /// @param _symbol The token symbol
     /// @param _priceLevels The price levels and names
+    /// @param _imageLevels Array of price levels and corresponding image URIs (required for IMAGE_EVOLUTION type)
+    /// @param _tokenType The type of token (REGULAR, TEXT_EVOLUTION, or IMAGE_EVOLUTION)
     /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
         address _bondingCurve,
@@ -229,6 +266,8 @@ interface IHigherrrrrrr {
         string memory _name,
         string memory _symbol,
         PriceLevel[] calldata _priceLevels,
-        address _convictionNFT
+        ImageLevel[] calldata _imageLevels,
+        address _convictionNFT,
+        TokenType _tokenType
     ) external payable;
 }

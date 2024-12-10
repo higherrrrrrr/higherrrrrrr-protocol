@@ -9,6 +9,7 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 contract HigherrrrrrrFactory {
     error Unauthorized();
     error ZeroAddress();
+    error InsufficientValue();
 
     event NewToken(address indexed token, address indexed conviction);
 
@@ -46,8 +47,12 @@ contract HigherrrrrrrFactory {
         string calldata name,
         string calldata symbol,
         string calldata uri,
-        IHigherrrrrrr.PriceLevel[] calldata levels
+        IHigherrrrrrr.PriceLevel[] calldata levels,
+        IHigherrrrrrr.ImageLevel[] calldata imageLevels,
+        IHigherrrrrrr.TokenType tokenType
     ) external payable returns (address token, address conviction) {
+        if (msg.value == 0) revert InsufficientValue();
+
         // Deploy token
         token = address(new Higherrrrrrr(feeRecipient, weth, nonfungiblePositionManager, swapRouter));
 
@@ -59,7 +64,9 @@ contract HigherrrrrrrFactory {
         HigherrrrrrrConviction(conviction).initialize(token);
 
         // Initialize the token
-        IHigherrrrrrr(token).initialize{value: msg.value}(bondingCurve, uri, name, symbol, levels, conviction);
+        IHigherrrrrrr(token).initialize{value: msg.value}(
+            bondingCurve, uri, name, symbol, levels, imageLevels, conviction, tokenType
+        );
 
         emit NewToken(token, conviction);
     }

@@ -16,7 +16,7 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {BondingCurve} from "./BondingCurve.sol";
 import {HigherrrrrrrConviction} from "./HigherrrrrrrConviction.sol";
 
-/* 
+/*
     higherrrrrrr
 */
 contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, ReentrancyGuardUpgradeable, IERC721Receiver {
@@ -38,6 +38,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
     BondingCurve public bondingCurve;
     MarketType public marketType;
+    TokenType public tokenType;
     string public tokenURI;
     address public poolAddress;
 
@@ -67,6 +68,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @param _priceLevels The price levels and names
     function initialize(
         address _bondingCurve,
+        TokenType _tokenType,
         string memory _tokenURI,
         string memory _name,
         string memory _symbol,
@@ -82,6 +84,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         // Initialize token and market state
         marketType = MarketType.BONDING_CURVE;
+        tokenType = _tokenType;
         tokenURI = _tokenURI;
         bondingCurve = BondingCurve(_bondingCurve);
 
@@ -194,14 +197,11 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         // Check if purchase qualifies for Conviction NFT (>0.1% of total supply)
         if (trueOrderSize >= (MAX_TOTAL_SUPPLY / CONVICTION_THRESHOLD) && convictionNFT != address(0)) {
-            // Get current evolution name
-            string memory currentEvolution = name();
-            // Get current price
-            uint256 currentPrice = getCurrentPrice();
+            (uint256 currentPrice, PriceLevel memory currentLevel) = getCurrentPriceLevel();
 
             // Mint Conviction NFT
             HigherrrrrrrConviction(convictionNFT).mintConviction(
-                recipient, currentEvolution, trueOrderSize, currentPrice
+                recipient, currentLevel.name, currentLevel.imageURI, trueOrderSize, currentPrice
             );
         }
 
@@ -240,7 +240,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         if (marketType != expectedMarketType) revert InvalidMarketType();
 
         // Ensure the sender has enough liquidity to sell
-        if (tokensToSell > balanceOf(msg.sender)) revert InsufficientLiquidity();
+        if (tokensToSell > balanceOf(msg.sender)) {
+            revert InsufficientLiquidity();
+        }
 
         // Ensure the recipient is not the zero address
         if (recipient == address(0)) revert AddressZero();
@@ -304,7 +306,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The number of tokens that can be bought from a given amount of ETH.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getEthBuyQuote(uint256 ethOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
+        if (marketType == MarketType.UNISWAP_POOL) {
+            revert MarketAlreadyGraduated();
+        }
 
         return bondingCurve.getEthBuyQuote(totalSupply(), ethOrderSize);
     }
@@ -312,7 +316,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The number of tokens for selling a given amount of ETH.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getEthSellQuote(uint256 ethOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
+        if (marketType == MarketType.UNISWAP_POOL) {
+            revert MarketAlreadyGraduated();
+        }
 
         return bondingCurve.getEthSellQuote(totalSupply(), ethOrderSize);
     }
@@ -320,7 +326,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The amount of ETH needed to buy a given number of tokens.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getTokenBuyQuote(uint256 tokenOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
+        if (marketType == MarketType.UNISWAP_POOL) {
+            revert MarketAlreadyGraduated();
+        }
 
         return bondingCurve.getTokenBuyQuote(totalSupply(), tokenOrderSize);
     }
@@ -328,7 +336,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The amount of ETH that can be received for selling a given number of tokens.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getTokenSellQuote(uint256 tokenOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
+        if (marketType == MarketType.UNISWAP_POOL) {
+            revert MarketAlreadyGraduated();
+        }
 
         return bondingCurve.getTokenSellQuote(totalSupply(), tokenOrderSize);
     }
@@ -336,7 +346,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The current exchange rate of the token if the market has not graduated.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function currentExchangeRate() public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
+        if (marketType == MarketType.UNISWAP_POOL) {
+            revert MarketAlreadyGraduated();
+        }
 
         uint256 remainingTokenLiquidity = balanceOf(address(this));
         uint256 ethBalance = address(this).balance;
@@ -371,7 +383,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     ///      - Prevent transfers to the pool if the market has not graduated.
     ///      - Emit the superset `HigherrrrrrrrTokenTransfer` event with each ERC20 transfer.
     function _update(address from, address to, uint256 value) internal virtual override {
-        if (marketType == MarketType.BONDING_CURVE && to == poolAddress) revert MarketNotGraduated();
+        if (marketType == MarketType.BONDING_CURVE && to == poolAddress) {
+            revert MarketNotGraduated();
+        }
 
         super._update(from, to, value);
 
@@ -552,28 +566,12 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     }
 
     function name() public view virtual override(ERC20Upgradeable, IHigherrrrrrr) returns (string memory) {
-        // Get the current price based on market type
-        uint256 currentPrice;
-        currentPrice = getCurrentPrice();
-
-        // If price is 0 (initial state), return base name
-        if (currentPrice == 0) {
+        if (tokenType == TokenType.REGULAR) {
             return super.name();
         }
 
-        // Find the highest price level that's below current price
-        string memory currentName = super.name();
-        uint256 highestQualifyingPrice = 0;
-
-        // Single pass through price levels to find highest qualifying price
-        for (uint256 i = 0; i < numPriceLevels; i++) {
-            if (currentPrice >= priceLevels[i].price && priceLevels[i].price > highestQualifyingPrice) {
-                highestQualifyingPrice = priceLevels[i].price;
-                currentName = priceLevels[i].name;
-            }
-        }
-
-        return currentName;
+        (, PriceLevel memory currentLevel) = getCurrentPriceLevel();
+        return currentLevel.name;
     }
 
     // Helper function to get current price from Uniswap pool
@@ -603,5 +601,35 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice Returns all price levels and their corresponding names
     function getPriceLevels() external view returns (PriceLevel[] memory) {
         return priceLevels;
+    }
+
+    /// @notice Returns the current price level
+    /// @return currentPrice The current price in ETH
+    /// @return currentLevel The current price level
+    function getCurrentPriceLevel()
+        public
+        view
+        override
+        returns (uint256 currentPrice, PriceLevel memory currentLevel)
+    {
+        currentPrice = getCurrentPrice();
+
+        // If price is 0 (initial state), return first price level
+        if (currentPrice == 0) {
+            currentLevel = PriceLevel(0, super.name(), tokenURI);
+            return (currentPrice, currentLevel);
+        }
+
+        // Find the highest price level that's below current price
+        uint256 highestQualifyingPrice = 0;
+
+        for (uint256 i = 0; i < numPriceLevels; i++) {
+            if (currentPrice >= priceLevels[i].price && priceLevels[i].price > highestQualifyingPrice) {
+                highestQualifyingPrice = priceLevels[i].price;
+                currentLevel = priceLevels[i];
+            }
+        }
+
+        return (currentPrice, currentLevel);
     }
 }

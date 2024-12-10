@@ -23,11 +23,7 @@ contract DeployHigherrrrrrr is Script {
 
         // Deploy Factory with fake multisig
         HigherrrrrrrFactory factory = new HigherrrrrrrFactory(
-            FAKE_MULTISIG,
-            WETH,
-            UNISWAP_V3_POSITION_MANAGER,
-            UNISWAP_V3_ROUTER,
-            address(bondingCurve)
+            FAKE_MULTISIG, WETH, UNISWAP_V3_POSITION_MANAGER, UNISWAP_V3_ROUTER, address(bondingCurve)
         );
 
         console.log("Deployed contracts:");

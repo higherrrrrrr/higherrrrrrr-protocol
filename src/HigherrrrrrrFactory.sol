@@ -46,6 +46,7 @@ contract HigherrrrrrrFactory {
         string calldata name,
         string calldata symbol,
         string calldata uri,
+        IHigherrrrrrr.TokenType _tokenType,
         IHigherrrrrrr.PriceLevel[] calldata levels
     ) external payable returns (address token, address conviction) {
         // Deploy token
@@ -59,7 +60,9 @@ contract HigherrrrrrrFactory {
         HigherrrrrrrConviction(conviction).initialize(token);
 
         // Initialize the token
-        IHigherrrrrrr(token).initialize{value: msg.value}(bondingCurve, uri, name, symbol, levels, conviction);
+        IHigherrrrrrr(token).initialize{value: msg.value}(
+            bondingCurve, _tokenType, uri, name, symbol, levels, conviction
+        );
 
         emit NewToken(token, conviction);
     }

@@ -47,6 +47,13 @@ interface IHigherrrrrrr {
     /// @notice Thrown when price levels are invalid
     error InvalidPriceLevels();
 
+    /// @notice Represents the type of token
+    enum TokenType {
+        REGULAR,
+        TEXT_EVOLUTION,
+        IMAGE_EVOLUTION
+    }
+
     /// @notice Represents the type of market
     enum MarketType {
         BONDING_CURVE,
@@ -63,6 +70,7 @@ interface IHigherrrrrrr {
     struct PriceLevel {
         uint256 price;
         string name;
+        string imageURI;
     }
 
     /// @notice Emitted when a token is bought
@@ -212,11 +220,21 @@ interface IHigherrrrrrr {
     /// @return The Conviction NFT contract address
     function convictionNFT() external view returns (address);
 
+    /// @notice Returns the type of token
+    /// @return The token type
+    function tokenType() external view returns (TokenType);
+
     /// @notice Returns the current price from Uniswap pool or 0 if in bonding curve
     /// @return The current price in ETH
     function getCurrentPrice() external view returns (uint256);
 
+    /// @notice Returns the current price level
+    /// @return currentPrice The current price in ETH
+    /// @return currentLevel The current price level
+    function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
+
     /// @notice Initializes a new Higherrrrrrr token
+    /// @param _tokenType The type of token
     /// @param _bondingCurve The address of the bonding curve module
     /// @param _tokenURI The ERC20 token URI
     /// @param _name The token name
@@ -225,6 +243,7 @@ interface IHigherrrrrrr {
     /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
         address _bondingCurve,
+        TokenType _tokenType,
         string memory _tokenURI,
         string memory _name,
         string memory _symbol,

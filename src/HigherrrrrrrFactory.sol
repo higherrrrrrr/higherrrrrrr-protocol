@@ -55,10 +55,10 @@ contract HigherrrrrrrFactory {
         IHigherrrrrrr.TokenType _tokenType,
         IHigherrrrrrr.PriceLevel[] calldata levels
     ) external payable returns (address token, address conviction) {
-        // Clone the Conviction NFT implementation
         bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
-        conviction = Clones.cloneDeterministic(convictionImplementation, salt);
 
+        // Clone the Conviction NFT implementation
+        conviction = Clones.cloneDeterministic(convictionImplementation, salt);
         // Deploy token
         token = Clones.cloneDeterministic(tokenImplementation, salt);
 
@@ -97,9 +97,11 @@ contract HigherrrrrrrFactory {
     }
 
     function collectFees(address[] memory tokensToCollect) public {
+        address token;
         for (uint256 i = 0; i < tokensToCollect.length; i++) {
-            if (tokensToCollect[i] == address(0)) continue;
-            IHigherrrrrrr(tokensToCollect[i]).collectFees();
+            token = tokensToCollect[i];
+            if (token == address(0)) continue;
+            IHigherrrrrrr(token).collectFees();
         }
     }
 

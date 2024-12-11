@@ -47,6 +47,13 @@ interface IHigherrrrrrr {
     /// @notice Thrown when price levels are invalid
     error InvalidPriceLevels();
 
+    /// @notice Represents the type of token
+    enum TokenType {
+        REGULAR,
+        TEXT_EVOLUTION,
+        IMAGE_EVOLUTION
+    }
+
     /// @notice Represents the type of market
     enum MarketType {
         BONDING_CURVE,
@@ -63,6 +70,7 @@ interface IHigherrrrrrr {
     struct PriceLevel {
         uint256 price;
         string name;
+        string imageURI;
     }
 
     /// @notice Emitted when a token is bought
@@ -200,10 +208,6 @@ interface IHigherrrrrrr {
     /// @return The market state
     function state() external view returns (MarketState memory);
 
-    /// @notice Returns the URI of the token
-    /// @return The token URI
-    function tokenURI() external view returns (string memory);
-
     /// @notice Returns the name of the token
     /// @return The token name
     function name() external view returns (string memory);
@@ -212,19 +216,52 @@ interface IHigherrrrrrr {
     /// @return The Conviction NFT contract address
     function convictionNFT() external view returns (address);
 
+    /// @notice Returns the type of token
+    /// @return The token type
+    function tokenType() external view returns (TokenType);
+
     /// @notice Returns the current price from Uniswap pool or 0 if in bonding curve
     /// @return The current price in ETH
     function getCurrentPrice() external view returns (uint256);
 
+    /// @notice Uniswap V3 LP Position ID
+    /// @return The LP NFT ID
+    function positionId() external view returns (uint256);
+
+    /// @notice Returns the current price level
+    /// @return currentPrice The current price in ETH
+    /// @return currentLevel The current price level
+    function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
+
+    /// @notice Returns the available fees for the position
+    /// @return tokensOwed0 The number of WETH tokens owed to the position
+    /// @return tokensOwed1 The number of tokens owed to the position
+    function availableFees() external view returns (uint128, uint128);
+
+    /// @notice Collects fees from the position
+    /// @return amount0 The number of token0 collected
+    /// @return amount1 The number of token1 collected
+    function collectFees() external returns (uint256, uint256);
+
     /// @notice Initializes a new Higherrrrrrr token
+    /// @param _feeRecipient The address to receive fees
+    /// @param _weth The WETH token address
+    /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
+    /// @param _swapRouter The Uniswap V3 router address
     /// @param _bondingCurve The address of the bonding curve module
-    /// @param _tokenURI The ERC20 token URI
+    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
+    /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _name The token name
     /// @param _symbol The token symbol
     /// @param _priceLevels The price levels and names
     /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
+        address _feeRecipient,
+        address _weth,
+        address _nonfungiblePositionManager,
+        address _swapRouter,
         address _bondingCurve,
+        TokenType _tokenType,
         string memory _tokenURI,
         string memory _name,
         string memory _symbol,

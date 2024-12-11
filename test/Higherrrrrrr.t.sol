@@ -53,37 +53,48 @@ contract HigherrrrrrrTest is Test {
         priceLevels.push(
             IHigherrrrrrr.PriceLevel({
                 price: 1_000_000_000, // 1 gwei
-                name: "highr"
+                name: "highr",
+                imageURI: ""
             })
         );
         priceLevels.push(
             IHigherrrrrrr.PriceLevel({
                 price: 5_000_000_000, // 5 gwei
-                name: "highrrr"
+                name: "highrrr",
+                imageURI: ""
             })
         );
         priceLevels.push(
             IHigherrrrrrr.PriceLevel({
                 price: 10_000_000_000, // 10 gwei
-                name: "highrrrrrr"
+                name: "highrrrrrr",
+                imageURI: ""
             })
         );
         priceLevels.push(
             IHigherrrrrrr.PriceLevel({
                 price: 50_000_000_000, // 50 gwei
-                name: "highrrrrrrr"
+                name: "highrrrrrrr",
+                imageURI: ""
             })
         );
         priceLevels.push(
             IHigherrrrrrr.PriceLevel({
                 price: 100_000_000_000, // 100 gwei
-                name: "highrrrrrrrr"
+                name: "highrrrrrrrr",
+                imageURI: ""
             })
         );
 
         // Deploy factory
         factory = new HigherrrrrrrFactory(
-            feeRecipient, address(weth), address(positionManager), SWAP_ROUTER, address(bondingCurve)
+            feeRecipient,
+            address(weth),
+            address(positionManager),
+            SWAP_ROUTER,
+            address(bondingCurve),
+            address(new Higherrrrrrr()),
+            address(new HigherrrrrrrConviction())
         );
 
         // Create new token instance with 0.01 ETH initial liquidity
@@ -92,6 +103,7 @@ contract HigherrrrrrrTest is Test {
             "highr", // Initial name
             "HIGHR", // Symbol
             "ipfs://QmHash", // Token URI
+            IHigherrrrrrr.TokenType.TEXT_EVOLUTION,
             priceLevels
         );
 
@@ -105,7 +117,7 @@ contract HigherrrrrrrTest is Test {
         vm.label(address(conviction), "Conviction");
     }
 
-    function test_InitialState() public {
+    function test_InitialState() public view {
         assertEq(token.name(), "highr");
         assertEq(token.symbol(), "HIGHR");
         assertEq(address(token.bondingCurve()), address(bondingCurve));
@@ -208,12 +220,24 @@ contract HigherrrrrrrTest is Test {
     // Security Tests
     function testFail_ReinitializeToken() public {
         // Try to initialize again
-        token.initialize(address(bondingCurve), "ipfs://QmHash2", "highr2", "HIGHR2", priceLevels, address(conviction));
+        token.initialize(
+            feeRecipient,
+            address(weth),
+            address(positionManager),
+            SWAP_ROUTER,
+            address(bondingCurve),
+            IHigherrrrrrr.TokenType.REGULAR,
+            "ipfs://QmHash2",
+            "highr2",
+            "HIGHR2",
+            priceLevels,
+            address(conviction)
+        );
     }
 
     function testFail_UnauthorizedConvictionMint() public {
         vm.startPrank(user1);
-        conviction.mintConviction(user1, "highr", 1000e18, 0.1 ether);
+        conviction.mintConviction(user1, "highr", "", 1000e18, 0.1 ether);
         vm.stopPrank();
     }
 
@@ -344,9 +368,10 @@ contract HigherrrrrrrTest is Test {
         assertTrue(bytes(uri).length > 0);
 
         // Verify conviction details
-        (string memory evolution, uint256 amount, uint256 price, uint256 timestamp) =
+        (string memory evolution, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp) =
             conviction.convictionDetails(tokenId);
         assertEq(evolution, token.name());
+        assertEq(imageURI, "");
         assertGt(amount, 0);
         assertGt(price, 0);
         assertEq(timestamp, block.timestamp);
@@ -362,22 +387,18 @@ contract HigherrrrrrrTest is Test {
         vm.deal(user1, 100 ether);
 
         // 1. Small buy - first evolution
-        uint256 tokens = token.buy{value: 0.001 ether}(
-            user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
-        );
+        uint256 tokens = token.buy{value: 0.001 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // 2. Medium buy - second evolution + NFT mint
-        tokens = token.buy{value: 0.6 ether}(
-            user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
-        );
+        tokens = token.buy{value: 0.6 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // 3. Large buy - graduate to Uniswap
-        tokens = token.buy{value: 8 ether}(
-            user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
-        );
+        tokens = token.buy{value: 8 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // Verify graduation
-        assertEq(uint256(token.marketType()), uint256(IHigherrrrrrr.MarketType.UNISWAP_POOL), "Should graduate to Uniswap");
+        assertEq(
+            uint256(token.marketType()), uint256(IHigherrrrrrr.MarketType.UNISWAP_POOL), "Should graduate to Uniswap"
+        );
         address poolAddress = token.poolAddress();
         assertTrue(poolAddress != address(0), "Pool should be created");
 

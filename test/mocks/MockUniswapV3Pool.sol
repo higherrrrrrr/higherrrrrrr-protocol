@@ -39,11 +39,11 @@ contract MockUniswapV3Pool {
     }
 
     function swap(
-        address recipient,
-        bool zeroForOne,
-        int256 amountSpecified,
+        address, // recipient,
+        bool, // zeroForOne,
+        int256, // amountSpecified,
         uint160 sqrtPriceLimitX96,
-        bytes calldata data
+        bytes calldata // data
     ) external returns (int256 amount0, int256 amount1) {
         // Mock implementation that just updates the price
         sqrtPriceX96 = sqrtPriceLimitX96;

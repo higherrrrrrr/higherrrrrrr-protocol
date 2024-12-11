@@ -6,10 +6,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
+import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {StringSanitizer} from "./libraries/StringSanitizer.sol";
 
-contract HigherrrrrrrConviction is ERC721, Ownable {
+contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
     using Strings for uint256;
 
     uint256 private _nextTokenId;
@@ -19,14 +20,6 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
     // Add constants for text limits
     uint256 private constant MAX_INPUT_LENGTH = 1024;
     uint256 private constant SVG_TEXT_LENGTH = 100;
-
-    // Mapping from token ID to conviction details
-    struct ConvictionDetails {
-        string evolution; // Name of token at time of purchase
-        uint256 amount; // Amount of tokens purchased
-        uint256 price; // Price at time of purchase
-        uint256 timestamp; // When the conviction was minted
-    }
 
     mapping(uint256 => ConvictionDetails) public convictionDetails;
 
@@ -41,7 +34,7 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         initialized = true;
     }
 
-    function mintConviction(address to, string memory evolution, uint256 amount, uint256 price)
+    function mintConviction(address to, string memory evolution, string memory imageURI, uint256 amount, uint256 price)
         external
         returns (uint256)
     {
@@ -50,8 +43,13 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         uint256 tokenId = _nextTokenId++;
         _mint(to, tokenId);
 
-        convictionDetails[tokenId] =
-            ConvictionDetails({evolution: evolution, amount: amount, price: price, timestamp: block.timestamp});
+        convictionDetails[tokenId] = ConvictionDetails({
+            evolution: evolution,
+            imageURI: imageURI,
+            amount: amount,
+            price: price,
+            timestamp: block.timestamp
+        });
 
         return tokenId;
     }
@@ -62,9 +60,10 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         view
         returns (string memory currentName, uint256 currentPrice, IHigherrrrrrr.MarketType marketType)
     {
-        currentName = higherrrrrrr.name();
-        currentPrice = higherrrrrrr.getCurrentPrice();
         (IHigherrrrrrr.MarketState memory state) = higherrrrrrr.state();
+        IHigherrrrrrr.PriceLevel memory currentLevel;
+        (currentPrice, currentLevel) = higherrrrrrr.getCurrentPriceLevel();
+        currentName = currentLevel.name;
         marketType = state.marketType;
     }
 
@@ -78,40 +77,46 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
         string memory priceInEth =
             string(abi.encodePacked((details.price / 1e18).toString(), ".", (details.price % 1e18).toString()));
 
-        // Sanitize strings for SVG context
-        string memory sanitizedEvolution = StringSanitizer.sanitize(details.evolution, 1);
-        string memory sanitizedAmount = StringSanitizer.sanitize((details.amount / 1e18).toString(), 1);
-        string memory sanitizedPrice = StringSanitizer.sanitize(priceInEth, 1);
-        string memory sanitizedTimestamp = StringSanitizer.sanitize(details.timestamp.toString(), 1);
+        string memory imageURI;
+        if (higherrrrrrr.tokenType() == IHigherrrrrrr.TokenType.IMAGE_EVOLUTION) {
+            imageURI = details.imageURI;
+        } else {
+            // Sanitize strings for SVG context
+            string memory sanitizedEvolution = StringSanitizer.sanitize(details.evolution, 1);
+            string memory sanitizedAmount = StringSanitizer.sanitize((details.amount / 1e18).toString(), 1);
+            string memory sanitizedPrice = StringSanitizer.sanitize(priceInEth, 1);
+            string memory sanitizedTimestamp = StringSanitizer.sanitize(details.timestamp.toString(), 1);
 
-        // Create SVG with sanitized values and text overflow handling
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">',
-                "<style>",
-                "text { font-family: monospace; fill: #4afa4a; text-anchor: middle; }",
-                ".left { text-anchor: start; }",
-                ".right { text-anchor: end; }",
-                ".evolution { inline-size: 360px; overflow-wrap: break-word; white-space: pre-wrap; }",
-                "</style>",
-                '<rect width="400" height="400" fill="#000000"/>',
-                '<foreignObject x="20" y="120" width="360" height="80">',
-                '<div xmlns="http://www.w3.org/1999/xhtml" style="font-family: monospace; color: #4afa4a; font-size: 24px; text-align: center; overflow-wrap: break-word;">',
-                sanitizedEvolution,
-                "</div>",
-                "</foreignObject>",
-                '<text x="200" y="240" font-size="20">',
-                sanitizedAmount,
-                " tokens</text>",
-                '<text x="20" y="380" font-size="16" class="left">',
-                sanitizedPrice,
-                " ETH</text>",
-                '<text x="380" y="380" font-size="16" class="right">',
-                sanitizedTimestamp,
-                "</text>",
-                "</svg>"
-            )
-        );
+            // Create SVG with sanitized values and text overflow handling
+            string memory svg = string(
+                abi.encodePacked(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">',
+                    "<style>",
+                    "text { font-family: monospace; fill: #4afa4a; text-anchor: middle; }",
+                    ".left { text-anchor: start; }",
+                    ".right { text-anchor: end; }",
+                    ".evolution { inline-size: 360px; overflow-wrap: break-word; white-space: pre-wrap; }",
+                    "</style>",
+                    '<rect width="400" height="400" fill="#000000"/>',
+                    '<foreignObject x="20" y="120" width="360" height="80">',
+                    '<div xmlns="http://www.w3.org/1999/xhtml" style="font-family: monospace; color: #4afa4a; font-size: 24px; text-align: center; overflow-wrap: break-word;">',
+                    sanitizedEvolution,
+                    "</div>",
+                    "</foreignObject>",
+                    '<text x="200" y="240" font-size="20">',
+                    sanitizedAmount,
+                    " tokens</text>",
+                    '<text x="20" y="380" font-size="16" class="left">',
+                    sanitizedPrice,
+                    " ETH</text>",
+                    '<text x="380" y="380" font-size="16" class="right">',
+                    sanitizedTimestamp,
+                    "</text>",
+                    "</svg>"
+                )
+            );
+            imageURI = string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svg))));
+        }
 
         // Sanitize strings for JSON context
         string memory sanitizedEvolutionJson = StringSanitizer.sanitize(details.evolution, 2);
@@ -144,8 +149,8 @@ contract HigherrrrrrrConviction is ERC721, Ownable {
                         sanitizedTimestampJson,
                         '"}',
                         "],",
-                        '"image": "data:image/svg+xml;base64,',
-                        Base64.encode(bytes(svg)),
+                        '"image": "',
+                        imageURI,
                         '"',
                         "}"
                     )

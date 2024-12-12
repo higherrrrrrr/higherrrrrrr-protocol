@@ -7,7 +7,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/ut
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
-import {BondingCurve} from "./BondingCurve.sol";
+import {BondingCurve} from "./libraries/BondingCurve.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 import {INonfungiblePositionManager} from "./interfaces/INonfungiblePositionManager.sol";
@@ -22,11 +22,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
     using SafeTransferLib for address;
     using FixedPointMathLib for uint256;
 
-    // Public Token Constants
-    uint16 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
-    uint64 public constant MIN_ORDER_SIZE = 0.0000001 ether;
-    uint256 public constant MAX_TOTAL_SUPPLY = 1_000_000_000e18; // 1B tokens
-
     /// @dev Internal Token Constants
     uint256 internal constant PRIMARY_MARKET_SUPPLY = 800_000_000e18; // 800M tokens
     uint256 internal constant SECONDARY_MARKET_SUPPLY = 200_000_000e18; // 200M tokens
@@ -34,6 +29,11 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
     uint160 internal constant POOL_SQRT_PRICE_X96_TOKEN_0 = 15655546353934715619853339;
     int24 internal constant LP_TICK_LOWER = -887200;
     int24 internal constant LP_TICK_UPPER = 887200;
+
+    // Public Token Constants
+    uint16 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
+    uint64 public constant MIN_ORDER_SIZE = 0.0000001 ether;
+    uint256 public constant MAX_TOTAL_SUPPLY = 1_000_000_000e18; // 1B tokens
 
     // @dev Internal Fee Constants
     uint16 public constant LP_FEE = 500;
@@ -66,7 +66,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
     uint256 public positionId;
 
     /// @dev Fees
-    uint256 internal accumulatedTradingFeeETH;
+    uint256 public availableTradingFees;
 
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _weth The WETH token address
@@ -204,7 +204,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
     function getCurrentPrice() public view returns (uint256) {
         if (marketType == MarketType.BONDING_CURVE) {
             // Calculate current price from bonding curve
-            return (1 ether * 1e18) / BondingCurve.getEthBuyQuote(totalSupply(), 1 ether); // Price in wei per token
+            return (1 ether * 1e18) / this.getEthBuyQuote(1 ether); // Price in wei per token
         }
 
         // Uniswap pool price calculation
@@ -287,39 +287,26 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
 
     /// @notice The number of tokens that can be bought from a given amount of ETH.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
-    function getEthBuyQuote(uint256 ethOrderSize) external view onlyBondingMarket returns (uint256) {
+    function getEthBuyQuote(uint256 ethOrderSize) public view onlyBondingMarket returns (uint256) {
         return BondingCurve.getEthBuyQuote(totalSupply(), ethOrderSize);
     }
 
     /// @notice The number of tokens for selling a given amount of ETH.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
-    function getEthSellQuote(uint256 ethOrderSize) external view onlyBondingMarket returns (uint256) {
+    function getEthSellQuote(uint256 ethOrderSize) public view onlyBondingMarket returns (uint256) {
         return BondingCurve.getEthSellQuote(totalSupply(), ethOrderSize);
     }
 
     /// @notice The amount of ETH needed to buy a given number of tokens.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
-    function getTokenBuyQuote(uint256 tokenOrderSize) external view onlyBondingMarket returns (uint256) {
+    function getTokenBuyQuote(uint256 tokenOrderSize) public view onlyBondingMarket returns (uint256) {
         return BondingCurve.getTokenBuyQuote(totalSupply(), tokenOrderSize);
     }
 
     /// @notice The amount of ETH that can be received for selling a given number of tokens.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
-    function getTokenSellQuote(uint256 tokenOrderSize) external view onlyBondingMarket returns (uint256) {
+    function getTokenSellQuote(uint256 tokenOrderSize) public view onlyBondingMarket returns (uint256) {
         return BondingCurve.getTokenSellQuote(totalSupply(), tokenOrderSize);
-    }
-
-    /// @notice The current exchange rate of the token if the market has not graduated.
-    ///         This will revert if the market has graduated to the Uniswap V3 pool.
-    function currentExchangeRate() external view onlyBondingMarket returns (uint256) {
-        uint256 remainingTokenLiquidity = balanceOf(address(this));
-        uint256 ethBalance = address(this).balance - accumulatedTradingFeeETH;
-
-        if (ethBalance < 0.01 ether) {
-            ethBalance = 0.01 ether;
-        }
-
-        return (remainingTokenLiquidity * 1e18) / ethBalance;
     }
 
     /// @dev Validates a bonding curve buy order and if necessary, recalculates the order data if the size is greater than the remaining supply
@@ -337,7 +324,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         uint256 remainingEth = totalCost - fee;
 
         // Get quote for the number of tokens that can be bought with the amount of ETH remaining
-        trueOrderSize = BondingCurve.getEthBuyQuote(totalSupply(), remainingEth);
+        trueOrderSize = this.getEthBuyQuote(remainingEth);
 
         // Ensure the order size is greater than the minimum order size
         if (trueOrderSize < minOrderSize) revert SlippageBoundsExceeded();
@@ -354,7 +341,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
             trueOrderSize = maxRemainingTokens;
 
             // Calculate the amount of ETH needed to buy the remaining tokens
-            uint256 ethNeeded = BondingCurve.getTokenBuyQuote(totalSupply(), trueOrderSize);
+            uint256 ethNeeded = this.getTokenBuyQuote(trueOrderSize);
 
             // Recalculate the fee with the updated order size
             fee = calculateTradingFee(ethNeeded);
@@ -372,7 +359,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
     /// @dev Handles a bonding curve sell order
     function _handleBondingCurveSell(uint256 tokensToSell, uint256 minPayoutSize) private returns (uint256 payout) {
         // Get quote for the number of ETH that can be received for the number of tokens to sell
-        payout = BondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
+        payout = this.getTokenSellQuote(tokensToSell);
 
         // Ensure the payout is greater than the minimum payout size
         if (payout < minPayoutSize) revert SlippageBoundsExceeded();
@@ -462,7 +449,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
             uint256 ethDust = ethLiquidity - depositedWETH;
             if (ethDust != 0) {
                 WETH.withdraw(ethDust);
-                accumulatedTradingFeeETH += ethDust;
+                availableTradingFees += ethDust;
             }
 
             uint256 tokenDust = SECONDARY_MARKET_SUPPLY - depositedTokens;
@@ -604,7 +591,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         }
 
         // Handle the fees
-        accumulatedTradingFeeETH += fee;
+        availableTradingFees += fee;
 
         emit HigherrrrrrTokenBuy(
             msg.sender,
@@ -679,7 +666,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         );
 
         // Handle the fees
-        accumulatedTradingFeeETH += fee;
+        availableTradingFees += fee;
         // Send the payout to the recipient
         recipient.safeTransferETH(payoutAfterFee);
 
@@ -765,7 +752,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         view
         returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
     {
-        (protocolETH, creatorETH) = calculateFeeSplit(accumulatedTradingFeeETH);
+        (protocolETH, creatorETH) = calculateFeeSplit(availableTradingFees);
         return (protocolETH, creatorETH, protocolTokens, creatorTokens);
     }
 
@@ -785,11 +772,11 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
             (lpETH, lpTokens) = _pullLiquidityFees();
         }
 
-        (protocolETH, creatorETH) = calculateFeeSplit(accumulatedTradingFeeETH + lpETH);
+        (protocolETH, creatorETH) = calculateFeeSplit(availableTradingFees + lpETH);
         (protocolTokens, creatorTokens) = calculateFeeSplit(lpTokens);
 
         /// ==== Effects ===============================================
-        accumulatedTradingFeeETH = 0;
+        availableTradingFees = 0;
 
         // ==== Interactions ============================================
         _distributeFees(protocolETH, creatorETH, protocolTokens, creatorTokens);
@@ -804,10 +791,10 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         public
         returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
     {
-        (protocolETH, creatorETH) = calculateFeeSplit(accumulatedTradingFeeETH);
+        (protocolETH, creatorETH) = calculateFeeSplit(availableTradingFees);
 
         // ==== Effects ===============================================
-        accumulatedTradingFeeETH = 0;
+        availableTradingFees = 0;
 
         // ==== Interactions ============================================
         _distributeFees(protocolETH, creatorETH, protocolTokens, creatorTokens);

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IHigherrrrrrr {
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+interface IHigherrrrrrr is IERC20 {
     /// @notice Unauthorized
     error Unauthorized();
 
@@ -45,6 +47,8 @@ interface IHigherrrrrrr {
         string name;
         string imageURI;
     }
+
+    function availableTradingFees() external view returns (uint256);
 
     /// @notice Emitted when a token is bought
     /// @param buyer The address of the buyer
@@ -171,6 +175,16 @@ interface IHigherrrrrrr {
     /// @param amount The amount of ETH
     /// @return The number of tokens that can be bought
     function getEthBuyQuote(uint256 amount) external view returns (uint256);
+
+    /// @notice Provides a quote for selling a given amount of ETH
+    /// @param amount The amount of ETH
+    /// @return The number of tokens that can be received
+    function getEthSellQuote(uint256 amount) external view returns (uint256);
+
+    /// @notice Provides a quote for buying a given number of tokens
+    /// @param amount The number of tokens
+    /// @return The amount of ETH needed
+    function getTokenBuyQuote(uint256 amount) external view returns (uint256);
 
     /// @notice Provides a quote for selling a given number of tokens
     /// @param amount The number of tokens

@@ -5,7 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import {Higherrrrrrr} from "../src/Higherrrrrrr.sol";
 import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
 import {HigherrrrrrrFactory} from "../src/HigherrrrrrrFactory.sol";
-import {BondingCurve} from "../src/BondingCurve.sol";
 import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
 
 contract DeployHigherrrrrrr is Script {

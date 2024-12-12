@@ -7,7 +7,7 @@ import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {Higherrrrrrr} from "../src/Higherrrrrrr.sol";
 import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
 import {HigherrrrrrrFactory} from "../src/HigherrrrrrrFactory.sol";
-import {BondingCurve} from "../src/BondingCurve.sol";
+import {BondingCurve} from "../src/libraries/BondingCurve.sol";
 import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {IUniswapV3Pool} from "../src/interfaces/IUniswapV3Pool.sol";

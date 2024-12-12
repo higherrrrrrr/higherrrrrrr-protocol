@@ -36,13 +36,11 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
 
     function mintConviction(address to, string memory evolution, string memory imageURI, uint256 amount, uint256 price)
         external
-        returns (uint256)
+        returns (uint256 tokenId)
     {
         require(msg.sender == address(higherrrrrrr), "Only Higherrrrrrr");
 
-        uint256 tokenId = _nextTokenId++;
-        _mint(to, tokenId);
-
+        tokenId = _nextTokenId++;
         convictionDetails[tokenId] = ConvictionDetails({
             evolution: evolution,
             imageURI: imageURI,
@@ -51,6 +49,7 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
             timestamp: block.timestamp
         });
 
+        _mint(to, tokenId);
         return tokenId;
     }
 

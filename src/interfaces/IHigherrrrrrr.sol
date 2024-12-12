@@ -140,7 +140,7 @@ interface IHigherrrrrrr {
     /// @notice Emitted when fees are distributed
     /// @param feeRecipient The address of the fee recipient
     /// @param fee The fee amount
-    event HigherrrrrrTokenFees(address indexed feeRecipient, uint256 fee);
+    event HigherrrrrrTokenFees(address indexed feeRecipient, address token, uint256 fee);
 
     /// @notice Emitted when a market graduates
     /// @param tokenAddress The address of the token
@@ -233,18 +233,9 @@ interface IHigherrrrrrr {
     /// @return currentLevel The current price level
     function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
 
-    /// @notice Returns the available fees for the position
-    /// @return tokensOwed0 The number of WETH tokens owed to the position
-    /// @return tokensOwed1 The number of tokens owed to the position
-    function availableFees() external view returns (uint128, uint128);
-
-    /// @notice Collects fees from the position
-    /// @return amount0 The number of token0 collected
-    /// @return amount1 The number of token1 collected
-    function collectFees() external returns (uint256, uint256);
-
     /// @notice Initializes a new Higherrrrrrr token
-    /// @param _feeRecipient The address to receive fees
+    /// @param _protocolFeeRecipient The address to receive fees
+    /// @param _creatorFeeRecipient The address to receive fees
     /// @param _weth The WETH token address
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
@@ -256,7 +247,8 @@ interface IHigherrrrrrr {
     /// @param _priceLevels The price levels and names
     /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
-        address _feeRecipient,
+        address _protocolFeeRecipient,
+        address _creatorFeeRecipient,
         address _weth,
         address _nonfungiblePositionManager,
         address _swapRouter,
@@ -268,4 +260,61 @@ interface IHigherrrrrrr {
         PriceLevel[] calldata _priceLevels,
         address _convictionNFT
     ) external payable;
+
+    /// @notice Returns the total collectable fees from both trading and liquidity
+    /// @return protocolETH The amount of ETH collectable by the protocol
+    /// @return creatorETH The amount of ETH collectable by the creator
+    /// @return protocolTokens The amount of tokens collectable by the protocol
+    /// @return creatorTokens The amount of tokens collectable by the creator
+    function collectable()
+        external
+        view
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+
+    /// @notice Returns the collectable fees from liquidity provision
+    /// @return protocolETH The amount of ETH collectable by the protocol
+    /// @return creatorETH The amount of ETH collectable by the creator
+    /// @return protocolTokens The amount of tokens collectable by the protocol
+    /// @return creatorTokens The amount of tokens collectable by the creator
+    function collectableLiquidityFees()
+        external
+        view
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+
+    /// @notice Returns the collectable fees from trading
+    /// @return protocolETH The amount of ETH collectable by the protocol
+    /// @return creatorETH The amount of ETH collectable by the creator
+    /// @return protocolTokens The amount of tokens collectable by the protocol
+    /// @return creatorTokens The amount of tokens collectable by the creator
+    function collectableTradingFees()
+        external
+        view
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+
+    /// @notice Collects all fees from both trading and liquidity
+    /// @return protocolETH The amount of ETH collected by the protocol
+    /// @return creatorETH The amount of ETH collected by the creator
+    /// @return protocolTokens The amount of tokens collected by the protocol
+    /// @return creatorTokens The amount of tokens collected by the creator
+    function collect()
+        external
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+
+    /// @notice Collects fees from trading only
+    /// @return protocolETH The amount of ETH collected by the protocol
+    /// @return creatorETH The amount of ETH collected by the creator
+    /// @return protocolTokens The amount of tokens collected by the protocol
+    /// @return creatorTokens The amount of tokens collected by the creator
+    function collectTradingFees()
+        external
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+
+    /// @notice Collects fees from liquidity provision only
+    /// @return protocolETH The amount of ETH collected by the protocol
+    /// @return creatorETH The amount of ETH collected by the creator
+    /// @return protocolTokens The amount of tokens collected by the protocol
+    /// @return creatorTokens The amount of tokens collected by the creator
+    function collectLiquidityFees()
+        external
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
 }

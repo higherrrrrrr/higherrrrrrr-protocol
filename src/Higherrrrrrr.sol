@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {INonfungiblePositionManager} from "./interfaces/INonfungiblePositionManager.sol";
@@ -19,40 +20,55 @@ import {HigherrrrrrrConviction} from "./HigherrrrrrrConviction.sol";
 /*
     higherrrrrrr
 */
-contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, ReentrancyGuardUpgradeable, IERC721Receiver {
+contract Higherrrrrrr is IHigherrrrrrr, ERC20Upgradeable, ReentrancyGuardUpgradeable, IERC721Receiver {
+    using SafeTransferLib for address;
+    using FixedPointMathLib for uint256;
+
+    /// @dev Constants
+    uint256 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
     uint256 public constant MAX_TOTAL_SUPPLY = 1_000_000_000e18; // 1B tokens
     uint256 internal constant PRIMARY_MARKET_SUPPLY = 800_000_000e18; // 800M tokens
     uint256 internal constant SECONDARY_MARKET_SUPPLY = 200_000_000e18; // 200M tokens
-    uint256 public constant TOTAL_FEE_BPS = 100; // 1%
     uint256 public constant MIN_ORDER_SIZE = 0.0000001 ether;
     uint160 internal constant POOL_SQRT_PRICE_X96_WETH_0 = 400950665883918763141200546267337;
     uint160 internal constant POOL_SQRT_PRICE_X96_TOKEN_0 = 15655546353934715619853339;
+    uint24 public constant PROTOCOL_FEE_BPS = 3_000; // 30%
+    uint24 public constant TRADING_FEE_BPS = 100; // 1%
     uint24 internal constant LP_FEE = 500;
     int24 internal constant LP_TICK_LOWER = -887200;
     int24 internal constant LP_TICK_UPPER = 887200;
 
+    /// @dev Addresses
     address public WETH;
+    address public protocolFeeRecipient;
+    address public creatorFeeRecipient;
+
+    /// @dev Uniswap V3
     address public nonfungiblePositionManager;
     address public swapRouter;
-    address public feeRecipient;
+    address public poolAddress;
+    uint256 public positionId;
+    bool internal isWETHToken1;
 
+    /// @dev Market Mechanics
     BondingCurve public bondingCurve;
     MarketType public marketType;
     TokenType public tokenType;
-    string internal basicTokenURI;
-    address public poolAddress;
+    uint256 public accumulatedETH;
+    uint256 public accumulatedTokens;
 
+    /// @dev Evolution Storage
+    string internal basicTokenURI;
     PriceLevel[] public priceLevels;
     uint256 public numPriceLevels;
 
+    /// @dev Conviction NFT
     address public convictionNFT;
-    uint256 public constant CONVICTION_THRESHOLD = 1000; // 0.1% = 1/1000
-
-    uint256 public positionId;
 
     /// @notice Initializes a new Higherrrrrrr token
-    /// @param _feeRecipient The address to receive fees
     /// @param _weth The WETH token address
+    /// @param _protocolFeeRecipient The address to receive fees
+    /// @param _creatorFeeRecipient The address of the creator
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
     /// @param _bondingCurve The address of the bonding curve module
@@ -63,8 +79,9 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @param _priceLevels The price levels and names
     /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
-        address _feeRecipient,
         address _weth,
+        address _protocolFeeRecipient,
+        address _creatorFeeRecipient,
         address _nonfungiblePositionManager,
         address _swapRouter,
         address _bondingCurve,
@@ -75,40 +92,52 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         PriceLevel[] calldata _priceLevels,
         address _convictionNFT
     ) public payable initializer {
-        // Validate the creation parameters
+        // ==== Checks =====================================================
         if (_bondingCurve == address(0)) revert AddressZero();
-        if (_feeRecipient == address(0)) revert AddressZero();
+        if (protocolFeeRecipient == address(0)) revert AddressZero();
         if (_weth == address(0)) revert AddressZero();
         if (_nonfungiblePositionManager == address(0)) revert AddressZero();
         if (_swapRouter == address(0)) revert AddressZero();
+        if (_priceLevels.length == 0) revert NoPriceLevels();
 
-        // Initialize base contract state
+        // ==== Effects ====================================================
         __ERC20_init(_name, _symbol);
         __ReentrancyGuard_init();
 
-        feeRecipient = _feeRecipient;
         WETH = _weth;
+        protocolFeeRecipient = _protocolFeeRecipient;
+        creatorFeeRecipient = _creatorFeeRecipient;
+
+        // Market
+        bondingCurve = BondingCurve(_bondingCurve);
         nonfungiblePositionManager = _nonfungiblePositionManager;
         swapRouter = _swapRouter;
-
-        // Initialize token and market state
         marketType = MarketType.BONDING_CURVE;
         tokenType = _tokenType;
+        isWETHToken1 = WETH >= address(this);
+
+        // Token metadata
         basicTokenURI = _tokenURI;
-        bondingCurve = BondingCurve(_bondingCurve);
-
-        // Initialize price levels
-        if (_priceLevels.length == 0) revert NoPriceLevels();
-
-        // Store price levels without sorting
         numPriceLevels = _priceLevels.length;
         priceLevels = _priceLevels;
 
-        // Determine the token0, token1, and sqrtPriceX96 values for the Uniswap V3 pool
-        address token0 = WETH < address(this) ? WETH : address(this);
-        address token1 = WETH < address(this) ? address(this) : WETH;
-        uint160 sqrtPriceX96 = token0 == WETH ? POOL_SQRT_PRICE_X96_WETH_0 : POOL_SQRT_PRICE_X96_TOKEN_0;
+        // Conviction NFT
+        convictionNFT = _convictionNFT;
 
+        // ==== Interactions ===============================================
+        // Determine the token0, token1, and sqrtPriceX96 values for the Uniswap V3 pool
+        address token0;
+        address token1;
+        uint160 sqrtPriceX96;
+        if (isWETHToken1) {
+            token0 = address(this);
+            token1 = WETH;
+            sqrtPriceX96 = POOL_SQRT_PRICE_X96_TOKEN_0;
+        } else {
+            token0 = WETH;
+            token1 = address(this);
+            sqrtPriceX96 = POOL_SQRT_PRICE_X96_WETH_0;
+        }
         // Create and initialize the Uniswap V3 pool
         poolAddress = INonfungiblePositionManager(nonfungiblePositionManager).createAndInitializePoolIfNecessary(
             token0, token1, LP_FEE, sqrtPriceX96
@@ -118,8 +147,6 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         if (msg.value > 0) {
             buy(msg.sender, msg.sender, "", MarketType.BONDING_CURVE, 0, 0);
         }
-
-        convictionNFT = _convictionNFT;
     }
 
     /// @notice Purchases tokens using ETH, either from the bonding curve or Uniswap V3 pool
@@ -155,13 +182,13 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         if (marketType == MarketType.UNISWAP_POOL) {
             // Calculate the fee
-            fee = _calculateFee(msg.value, TOTAL_FEE_BPS);
+            fee = _calculateTradingFee(msg.value);
 
             // Calculate the remaining ETH
             totalCost = msg.value - fee;
 
             // Handle the fees
-            _disperseFees(fee, address(0));
+            accumulatedETH += fee;
 
             // Convert the ETH to WETH and approve the swap router
             IWETH(WETH).deposit{value: totalCost}();
@@ -180,9 +207,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
             // Execute the swap
             trueOrderSize = ISwapRouter(swapRouter).exactInputSingle(params);
-        }
-
-        if (marketType == MarketType.BONDING_CURVE) {
+        } else if (marketType == MarketType.BONDING_CURVE) {
             // Validate the order data
             (totalCost, trueOrderSize, fee, refund, shouldGraduateMarket) = _validateBondingCurveBuy(minOrderSize);
 
@@ -190,12 +215,11 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
             _mint(recipient, trueOrderSize);
 
             // Handle the fees
-            _disperseFees(fee, address(0));
+            accumulatedETH += fee;
 
             // Refund any excess ETH
             if (refund > 0) {
-                (bool success,) = refundRecipient.call{value: refund}("");
-                if (!success) revert EthTransferFailed();
+                refundRecipient.safeTransferETH(refund);
             }
         }
 
@@ -244,42 +268,24 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         MarketType expectedMarketType,
         uint256 minPayoutSize,
         uint160 sqrtPriceLimitX96
-    ) external nonReentrant returns (uint256) {
+    ) external nonReentrant returns (uint256 truePayoutSize) {
+        // ==== Checks =====================================================
         // Ensure the market type is expected
         if (marketType != expectedMarketType) revert InvalidMarketType();
-
         // Ensure the sender has enough liquidity to sell
-        if (tokensToSell > balanceOf(msg.sender)) {
-            revert InsufficientLiquidity();
-        }
-
+        if (tokensToSell > balanceOf(msg.sender)) revert InsufficientLiquidity();
         // Ensure the recipient is not the zero address
         if (recipient == address(0)) revert AddressZero();
 
-        // Initialize the true payout size
-        uint256 truePayoutSize;
-
-        if (marketType == MarketType.UNISWAP_POOL) {
-            truePayoutSize = _handleUniswapSell(tokensToSell, minPayoutSize, sqrtPriceLimitX96);
-        }
-
-        if (marketType == MarketType.BONDING_CURVE) {
-            truePayoutSize = _handleBondingCurveSell(tokensToSell, minPayoutSize);
-        }
-
+        // ==== Effects ===============================================
         // Calculate the fee
-        uint256 fee = _calculateFee(truePayoutSize, TOTAL_FEE_BPS);
-
+        uint256 fee = _calculateTradingFee(truePayoutSize);
+        // Handle the fees
+        accumulatedETH += fee;
         // Calculate the payout after the fee
         uint256 payoutAfterFee = truePayoutSize - fee;
 
-        // Handle the fees
-        _disperseFees(fee, address(0));
-
-        // Send the payout to the recipient
-        (bool success,) = recipient.call{value: payoutAfterFee}("");
-        if (!success) revert EthTransferFailed();
-
+        // Interactions
         emit HigherrrrrrTokenSell(
             msg.sender,
             recipient,
@@ -292,6 +298,16 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
             totalSupply(),
             marketType
         );
+
+        // ==== Interactions ===============================================
+        if (marketType == MarketType.UNISWAP_POOL) {
+            truePayoutSize = _handleUniswapSell(tokensToSell, minPayoutSize, sqrtPriceLimitX96);
+        } else if (marketType == MarketType.BONDING_CURVE) {
+            truePayoutSize = _handleBondingCurveSell(tokensToSell, minPayoutSize);
+        }
+
+        // Send the payout to the recipient
+        recipient.safeTransferETH(payoutAfterFee);
 
         return truePayoutSize;
     }
@@ -315,9 +331,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The number of tokens that can be bought from a given amount of ETH.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getEthBuyQuote(uint256 ethOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) {
-            revert MarketAlreadyGraduated();
-        }
+        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
 
         return bondingCurve.getEthBuyQuote(totalSupply(), ethOrderSize);
     }
@@ -325,9 +339,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The number of tokens for selling a given amount of ETH.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getEthSellQuote(uint256 ethOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) {
-            revert MarketAlreadyGraduated();
-        }
+        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
 
         return bondingCurve.getEthSellQuote(totalSupply(), ethOrderSize);
     }
@@ -335,9 +347,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The amount of ETH needed to buy a given number of tokens.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getTokenBuyQuote(uint256 tokenOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) {
-            revert MarketAlreadyGraduated();
-        }
+        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
 
         return bondingCurve.getTokenBuyQuote(totalSupply(), tokenOrderSize);
     }
@@ -345,9 +355,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The amount of ETH that can be received for selling a given number of tokens.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function getTokenSellQuote(uint256 tokenOrderSize) public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) {
-            revert MarketAlreadyGraduated();
-        }
+        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
 
         return bondingCurve.getTokenSellQuote(totalSupply(), tokenOrderSize);
     }
@@ -355,9 +363,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @notice The current exchange rate of the token if the market has not graduated.
     ///         This will revert if the market has graduated to the Uniswap V3 pool.
     function currentExchangeRate() public view returns (uint256) {
-        if (marketType == MarketType.UNISWAP_POOL) {
-            revert MarketAlreadyGraduated();
-        }
+        if (marketType == MarketType.UNISWAP_POOL) revert MarketAlreadyGraduated();
 
         uint256 remainingTokenLiquidity = balanceOf(address(this));
         uint256 ethBalance = address(this).balance;
@@ -371,9 +377,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
     /// @notice Receives ETH and executes a buy order.
     receive() external payable {
-        if (msg.sender == WETH) {
-            return;
-        }
+        if (msg.sender == WETH) return;
 
         buy(msg.sender, msg.sender, "", marketType, 0, 0);
     }
@@ -410,7 +414,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         totalCost = msg.value;
 
         // Calculate the fee
-        fee = _calculateFee(totalCost, TOTAL_FEE_BPS);
+        fee = _calculateTradingFee(totalCost);
 
         // Calculate the amount of ETH remaining for the order
         uint256 remainingEth = totalCost - fee;
@@ -425,9 +429,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         uint256 maxRemainingTokens = PRIMARY_MARKET_SUPPLY - totalSupply();
 
         // Start the market if the order size equals the number of remaining tokens
-        if (trueOrderSize == maxRemainingTokens) {
-            startMarket = true;
-        }
+        startMarket = trueOrderSize >= maxRemainingTokens;
 
         // If the order size is greater than the maximum number of remaining tokens:
         if (trueOrderSize > maxRemainingTokens) {
@@ -438,7 +440,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
             uint256 ethNeeded = bondingCurve.getTokenBuyQuote(totalSupply(), trueOrderSize);
 
             // Recalculate the fee with the updated order size
-            fee = _calculateFee(ethNeeded, TOTAL_FEE_BPS);
+            fee = _calculateTradingFee(ethNeeded);
 
             // Recalculate the total cost with the updated order size and fee
             totalCost = ethNeeded + fee;
@@ -447,15 +449,13 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
             if (msg.value > totalCost) {
                 refund = msg.value - totalCost;
             }
-
-            startMarket = true;
         }
     }
 
     /// @dev Handles a bonding curve sell order
-    function _handleBondingCurveSell(uint256 tokensToSell, uint256 minPayoutSize) private returns (uint256) {
+    function _handleBondingCurveSell(uint256 tokensToSell, uint256 minPayoutSize) private returns (uint256 payout) {
         // Get quote for the number of ETH that can be received for the number of tokens to sell
-        uint256 payout = bondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
+        payout = bondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
 
         // Ensure the payout is greater than the minimum payout size
         if (payout < minPayoutSize) revert SlippageBoundsExceeded();
@@ -472,27 +472,28 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     /// @dev Handles a Uniswap V3 sell order
     function _handleUniswapSell(uint256 tokensToSell, uint256 minPayoutSize, uint160 sqrtPriceLimitX96)
         private
-        returns (uint256)
+        returns (uint256 payout)
     {
+        // ==== Effects ===============================================
         // Transfer the tokens from the seller to this contract
         transfer(address(this), tokensToSell);
 
         // Approve the swap router to spend the tokens
         this.approve(swapRouter, tokensToSell);
 
-        // Set up the swap parameters
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn: address(this),
-            tokenOut: WETH,
-            fee: LP_FEE,
-            recipient: address(this),
-            amountIn: tokensToSell,
-            amountOutMinimum: minPayoutSize,
-            sqrtPriceLimitX96: sqrtPriceLimitX96
-        });
-
+        // ==== Interactions ============================================
         // Execute the swap
-        uint256 payout = ISwapRouter(swapRouter).exactInputSingle(params);
+        payout = ISwapRouter(swapRouter).exactInputSingle(
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: address(this),
+                tokenOut: WETH,
+                fee: LP_FEE,
+                recipient: address(this),
+                amountIn: tokensToSell,
+                amountOutMinimum: minPayoutSize,
+                sqrtPriceLimitX96: sqrtPriceLimitX96
+            })
+        );
 
         // Withdraw the ETH from the contract
         IWETH(WETH).withdraw(payout);
@@ -502,6 +503,7 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
     /// @dev Graduates the market to a Uniswap V3 pool.
     function _graduateMarket() internal {
+        // ==== Effects ===============================================
         // Update the market type
         marketType = MarketType.UNISWAP_POOL;
 
@@ -512,23 +514,35 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         // Mint the secondary market supply to this contract
         _mint(address(this), SECONDARY_MARKET_SUPPLY);
 
+        // Determine the token order
+        address token0;
+        address token1;
+        uint256 amount0;
+        uint256 amount1;
+        uint160 desiredSqrtPriceX96;
+        if (isWETHToken1) {
+            token0 = address(this);
+            token1 = WETH;
+            amount0 = SECONDARY_MARKET_SUPPLY;
+            amount1 = ethLiquidity;
+            desiredSqrtPriceX96 = POOL_SQRT_PRICE_X96_TOKEN_0;
+        } else {
+            token0 = WETH;
+            token1 = address(this);
+            amount0 = ethLiquidity;
+            amount1 = SECONDARY_MARKET_SUPPLY;
+            desiredSqrtPriceX96 = POOL_SQRT_PRICE_X96_WETH_0;
+        }
+
+        // Get the current and desired price of the pool
+        (uint160 currentSqrtPriceX96,,,,,,) = IUniswapV3Pool(poolAddress).slot0();
+
+        // ==== Interactions ============================================
         // Approve the nonfungible position manager to transfer the WETH and tokens
         SafeERC20.safeIncreaseAllowance(IERC20(WETH), address(nonfungiblePositionManager), ethLiquidity);
         SafeERC20.safeIncreaseAllowance(
             IERC20(address(this)), address(nonfungiblePositionManager), SECONDARY_MARKET_SUPPLY
         );
-
-        // Determine the token order
-        bool isWethToken0 = address(WETH) < address(this);
-        address token0 = isWethToken0 ? WETH : address(this);
-        address token1 = isWethToken0 ? address(this) : WETH;
-        uint256 amount0 = isWethToken0 ? ethLiquidity : SECONDARY_MARKET_SUPPLY;
-        uint256 amount1 = isWethToken0 ? SECONDARY_MARKET_SUPPLY : ethLiquidity;
-
-        // Get the current and desired price of the pool
-
-        (uint160 currentSqrtPriceX96,,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-        uint160 desiredSqrtPriceX96 = isWethToken0 ? POOL_SQRT_PRICE_X96_WETH_0 : POOL_SQRT_PRICE_X96_TOKEN_0;
 
         // If the current price is not the desired price, set the desired price
         if (currentSqrtPriceX96 != desiredSqrtPriceX96) {
@@ -559,65 +573,8 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
         );
     }
 
-    /// @notice Returns the available fees for the position
-    /// @return tokensOwed0 The amount of WETH tokens owed to the position
-    /// @return tokensOwed1 The amount of tokens owed to the position
-    function availableFees() external view returns (uint128, uint128) {
-        (
-            , // uint96 nonce,
-            , // address operator,
-            address token0,
-            , // address token1,
-            , // uint24 fee,
-            , // int24 tickLower,
-            , // int24 tickUpper,
-            , // uint128 liquidity,
-            , // uint256 feeGrowthInside0LastX128,
-            , // uint256 feeGrowthInside1LastX128,
-            uint128 tokensOwed0,
-            uint128 tokensOwed1
-        ) = INonfungiblePositionManager(nonfungiblePositionManager).positions(positionId);
-
-        if (token0 == address(WETH)) {
-            return (tokensOwed0, tokensOwed1);
-        } else {
-            return (tokensOwed1, tokensOwed0);
-        }
-    }
-
-    /// @notice Collects fees from the position
-    /// @return amount0 The amount of token0 collected
-    /// @return amount1 The amount of token1 collected
-    function collectFees() external returns (uint256, uint256) {
-        return INonfungiblePositionManager(nonfungiblePositionManager).collect(
-            INonfungiblePositionManager.CollectParams({
-                tokenId: positionId,
-                recipient: feeRecipient,
-                amount0Max: type(uint128).max,
-                amount1Max: type(uint128).max
-            })
-        );
-    }
-
-    /// @dev Handles calculating and sending fees directly to the fee recipient
-    function _disperseFees(uint256 _fee, address) internal {
-        if (_fee > 0) {
-            (bool success,) = feeRecipient.call{value: _fee}("");
-            if (!success) revert EthTransferFailed();
-
-            emit HigherrrrrrTokenFees(feeRecipient, _fee);
-        }
-    }
-
-    /// @dev Calculates the fee for a given amount and basis points.
-    function _calculateFee(uint256 amount, uint256 bps) internal pure returns (uint256) {
-        return (amount * bps) / 10_000;
-    }
-
     function name() public view virtual override(ERC20Upgradeable, IHigherrrrrrr) returns (string memory) {
-        if (tokenType == TokenType.REGULAR) {
-            return super.name();
-        }
+        if (tokenType == TokenType.REGULAR) return super.name();
 
         (, PriceLevel memory currentLevel) = getCurrentPriceLevel();
         return currentLevel.name;
@@ -627,24 +584,20 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
     function getCurrentPrice() public view returns (uint256) {
         if (marketType == MarketType.BONDING_CURVE) {
             // Calculate current price from bonding curve
-            uint256 tokensForOneEth = bondingCurve.getEthBuyQuote(totalSupply(), 1 ether);
-            return (1 ether * 1e18) / tokensForOneEth; // Price in wei per token
+            return (1 ether * 1e18) / bondingCurve.getEthBuyQuote(totalSupply(), 1 ether); // Price in wei per token
         }
 
         // Uniswap pool price calculation
         (uint160 sqrtPriceX96,,,,,,) = IUniswapV3Pool(poolAddress).slot0();
 
         // Convert sqrtPriceX96 to actual price
-        uint256 price;
-        if (address(WETH) < address(this)) {
-            // WETH is token0, price = 1/price
-            price = ((2 ** 192) * 1e18) / (uint256(sqrtPriceX96) * uint256(sqrtPriceX96));
+        if (isWETHToken1) {
+            // price = price
+            return (uint256(sqrtPriceX96) * uint256(sqrtPriceX96) * 1e18) >> 192;
         } else {
-            // WETH is token1, price = price
-            price = (uint256(sqrtPriceX96) * uint256(sqrtPriceX96) * 1e18) >> 192;
+            // price = 1/price
+            return ((2 ** 192) * 1e18) / (uint256(sqrtPriceX96) * uint256(sqrtPriceX96));
         }
-
-        return price;
     }
 
     /// @notice Returns all price levels and their corresponding names
@@ -671,14 +624,185 @@ contract Higherrrrrrr is IHigherrrrrrr, Initializable, ERC20Upgradeable, Reentra
 
         // Find the highest price level that's below current price
         uint256 highestQualifyingPrice = 0;
+        PriceLevel storage level;
 
-        for (uint256 i = 0; i < numPriceLevels; i++) {
-            if (currentPrice >= priceLevels[i].price && priceLevels[i].price > highestQualifyingPrice) {
-                highestQualifyingPrice = priceLevels[i].price;
-                currentLevel = priceLevels[i];
+        for (uint256 i = 0; i < numPriceLevels;) {
+            level = priceLevels[i];
+            if (currentPrice >= level.price && level.price > highestQualifyingPrice) {
+                highestQualifyingPrice = level.price;
+                currentLevel = level;
+            }
+            unchecked {
+                ++i;
             }
         }
 
         return (currentPrice, currentLevel);
+    }
+
+    /// @dev Calculates the fee for a given amount and basis points.
+    function _calculateTradingFee(uint256 amount) internal pure returns (uint256 protocolFee) {
+        protocolFee = amount.mulDivUp(TRADING_FEE_BPS, 10_000); // round up
+    }
+
+    /// @dev Calculates the fee split for a given amount and basis points.
+    function _calculateFeeSplit(uint256 amount) internal pure returns (uint256 protocolFee, uint256 creatorFee) {
+        protocolFee = amount.mulDivUp(PROTOCOL_FEE_BPS, 10_000); // round up
+        creatorFee = amount - protocolFee;
+    }
+
+    /// @notice Returns the total collectable fees from both trading and liquidity
+    /// @return protocolETH The amount of ETH collectable by the protocol
+    /// @return creatorETH The amount of ETH collectable by the creator
+    /// @return protocolTokens The amount of tokens collectable by the protocol
+    /// @return creatorTokens The amount of tokens collectable by the creator
+    function collectable()
+        public
+        view
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+    {
+        (protocolETH, creatorETH) = _calculateFeeSplit(accumulatedETH);
+        (protocolTokens, creatorTokens) = _calculateFeeSplit(accumulatedTokens);
+    }
+
+    /// @notice Returns the collectable fees from liquidity provision
+    /// @return protocolETH The amount of ETH collectable by the protocol
+    /// @return creatorETH The amount of ETH collectable by the creator
+    /// @return protocolTokens The amount of tokens collectable by the protocol
+    /// @return creatorTokens The amount of tokens collectable by the creator
+    function collectableLiquidityFees()
+        public
+        view
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+    {
+        (,,,,,,,,,, uint128 ethAmount, uint128 tokenAmount) =
+            INonfungiblePositionManager(nonfungiblePositionManager).positions(positionId);
+
+        if (isWETHToken1) {
+            (ethAmount, tokenAmount) = (tokenAmount, ethAmount);
+        }
+
+        (protocolETH, creatorETH) = _calculateFeeSplit(ethAmount);
+        (protocolTokens, creatorTokens) = _calculateFeeSplit(tokenAmount);
+    }
+
+    /// @notice Returns the collectable fees from trading
+    /// @return protocolETH The amount of ETH collectable by the protocol
+    /// @return creatorETH The amount of ETH collectable by the creator
+    /// @return protocolTokens The amount of tokens collectable by the protocol
+    /// @return creatorTokens The amount of tokens collectable by the creator
+    function collectableTradingFees()
+        public
+        view
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+    {
+        (protocolETH, creatorETH) = _calculateFeeSplit(accumulatedETH);
+        (protocolTokens, creatorTokens) = _calculateFeeSplit(accumulatedTokens);
+    }
+
+    /// @notice Collects all fees from both trading and liquidity
+    /// @return protocolETH The amount of ETH collected by the protocol
+    /// @return creatorETH The amount of ETH collected by the creator
+    /// @return protocolTokens The amount of tokens collected by the protocol
+    /// @return creatorTokens The amount of tokens collected by the creator
+    function collect()
+        public
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+    {
+        (uint256 ethAmount, uint256 tokenAmount) = _pullLiquidityFees();
+
+        (protocolETH, creatorETH) = _calculateFeeSplit(accumulatedETH + ethAmount);
+        (protocolTokens, creatorTokens) = _calculateFeeSplit(accumulatedTokens + tokenAmount);
+
+        if (protocolETH == 0 || protocolTokens == 0 || creatorETH == 0 || creatorTokens == 0) {
+            revert InsufficientFunds();
+        }
+
+        /// ==== Effects ===============================================
+        accumulatedETH = 0;
+        accumulatedTokens = 0;
+
+        // ==== Interactions ============================================
+        _distributeFees(protocolETH, creatorETH, protocolTokens, creatorTokens);
+    }
+
+    /// @notice Collects fees from trading only
+    /// @return protocolETH The amount of ETH collected by the protocol
+    /// @return creatorETH The amount of ETH collected by the creator
+    /// @return protocolTokens The amount of tokens collected by the protocol
+    /// @return creatorTokens The amount of tokens collected by the creator
+    function collectTradingFees()
+        public
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+    {
+        (protocolETH, creatorETH) = _calculateFeeSplit(accumulatedETH);
+        (protocolTokens, creatorTokens) = _calculateFeeSplit(accumulatedTokens);
+
+        if (protocolETH == 0 || protocolTokens == 0 || creatorETH == 0 || creatorTokens == 0) {
+            revert InsufficientFunds();
+        }
+
+        // ==== Effects ===============================================
+        accumulatedETH = 0;
+        accumulatedTokens = 0;
+
+        // ==== Interactions ============================================
+        _distributeFees(protocolETH, creatorETH, protocolTokens, creatorTokens);
+    }
+
+    /// @notice Collects fees from liquidity provision only
+    /// @return protocolETH The amount of ETH collected by the protocol
+    /// @return creatorETH The amount of ETH collected by the creator
+    /// @return protocolTokens The amount of tokens collected by the protocol
+    /// @return creatorTokens The amount of tokens collected by the creator
+    function collectLiquidityFees()
+        public
+        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+    {
+        (uint256 ethAmount, uint256 tokenAmount) = _pullLiquidityFees();
+
+        (protocolETH, creatorETH) = _calculateFeeSplit(ethAmount);
+        (protocolTokens, creatorTokens) = _calculateFeeSplit(tokenAmount);
+
+        if (protocolETH == 0 || protocolTokens == 0 || creatorETH == 0 || creatorTokens == 0) {
+            revert InsufficientFunds();
+        }
+
+        // ==== Interactions ============================================
+        _distributeFees(protocolETH, creatorETH, protocolTokens, creatorTokens);
+    }
+
+    /// @dev Be very careful when calling this function
+    function _pullLiquidityFees() internal returns (uint256 ethAmount, uint256 tokenAmount) {
+        (ethAmount, tokenAmount) = INonfungiblePositionManager(nonfungiblePositionManager).collect(
+            INonfungiblePositionManager.CollectParams({
+                tokenId: positionId,
+                recipient: address(this),
+                amount0Max: type(uint128).max,
+                amount1Max: type(uint128).max
+            })
+        );
+
+        if (isWETHToken1) {
+            (ethAmount, tokenAmount) = (tokenAmount, ethAmount);
+        }
+
+        IWETH(WETH).withdraw(ethAmount);
+    }
+
+    function _distributeFees(uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens)
+        internal
+    {
+        protocolFeeRecipient.safeTransfer(address(this), protocolTokens);
+        emit HigherrrrrrTokenFees(protocolFeeRecipient, address(0), protocolETH);
+
+        protocolFeeRecipient.safeTransferETH(protocolETH);
+        emit HigherrrrrrTokenFees(protocolFeeRecipient, address(this), protocolTokens);
+
+        creatorFeeRecipient.safeTransfer(address(this), creatorTokens);
+        emit HigherrrrrrTokenFees(creatorFeeRecipient, address(this), creatorTokens);
+
+        creatorFeeRecipient.safeTransferETH(creatorETH); // last to avoid reentrancy
+        emit HigherrrrrrTokenFees(creatorFeeRecipient, address(0), creatorETH);
     }
 }

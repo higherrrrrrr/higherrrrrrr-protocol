@@ -560,15 +560,24 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         // ==== Interactions ===============================================
         uint256 totalCost;
         uint256 fee;
-        uint256 refund;
-        bool shouldGraduateMarket;
 
         if (marketType == MarketType.BONDING_CURVE) {
+            bool shouldGraduateMarket;
+            uint256 refund;
             // Validate the order data
             (totalCost, trueOrderSize, fee, refund, shouldGraduateMarket) = _validateBondingCurveBuy(minOrderSize);
 
             // Mint the tokens to the recipient
             _mint(recipient, trueOrderSize);
+
+            if (refund != 0) {
+                refundRecipient.safeTransferETH(refund);
+            }
+
+            // Start the market if this is the final bonding market buy order.
+            if (shouldGraduateMarket) {
+                _graduateMarket();
+            }
         } else {
             // Calculate the fee
             fee = calculateTradingFee(msg.value);
@@ -597,11 +606,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         // Handle the fees
         accumulatedTradingFeeETH += fee;
 
-        // Start the market if this is the final bonding market buy order.
-        if (shouldGraduateMarket) {
-            _graduateMarket();
-        }
-
         emit HigherrrrrrTokenBuy(
             msg.sender,
             recipient,
@@ -618,11 +622,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         // Check if purchase qualifies for Conviction NFT (>0.1% of total supply)
         if (trueOrderSize >= (MAX_TOTAL_SUPPLY / CONVICTION_THRESHOLD)) {
             _mintConvictionNFT(recipient, trueOrderSize);
-        }
-
-        // Refund any excess ETH
-        if (refund != 0) {
-            refundRecipient.safeTransferETH(refund);
         }
 
         return trueOrderSize;

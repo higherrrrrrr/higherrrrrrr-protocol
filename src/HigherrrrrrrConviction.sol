@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Base64} from "solady/src/utils/Base64.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable} from "solady/src/auth/Ownable.sol";
+import {ERC721} from "solady/src/tokens/ERC721.sol";
+import {Initializable} from "solady/src/utils/Initializable.sol";
 
 import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {StringSanitizer} from "./libraries/StringSanitizer.sol";
 
-contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721Upgradeable, OwnableUpgradeable {
+contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable, Initializable {
     using LibString for uint256;
 
     uint256 public totalSupply;
@@ -20,11 +21,18 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721Upgradeable, O
     mapping(uint256 => ConvictionDetails) public convictionDetails;
 
     function initialize(address _higherrrrrrr) external initializer {
-        __Ownable_init(_higherrrrrrr);
-        __ERC721_init("Higherrrrrrr Conviction", "CONVICTION");
+        _setOwner(_higherrrrrrr);
 
         totalSupply = 0;
         higherrrrrrr = IHigherrrrrrr(_higherrrrrrr);
+    }
+
+    function name() public view override returns (string memory) {
+        return IERC20(address(higherrrrrrr)).name();
+    }
+
+    function symbol() public pure override returns (string memory) {
+        return "CONVICTION";
     }
 
     function mintConviction(
@@ -63,7 +71,7 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721Upgradeable, O
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         if (tokenId >= totalSupply || _ownerOf(tokenId) == address(0)) {
-            revert ERC721NonexistentToken(tokenId);
+            revert TokenDoesNotExist();
         }
 
         ConvictionDetails storage details = convictionDetails[tokenId];

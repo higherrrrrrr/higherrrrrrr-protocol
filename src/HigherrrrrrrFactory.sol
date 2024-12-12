@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {LibClone} from "solady/src/utils/LibClone.sol";
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {Higherrrrrrr} from "./Higherrrrrrr.sol";
@@ -62,8 +61,8 @@ contract HigherrrrrrrFactory {
         bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
 
         // ==== Effects ====================================================
-        conviction = Clones.cloneDeterministic(convictionImplementation, salt);
-        token = Clones.cloneDeterministic(tokenImplementation, salt);
+        conviction = LibClone.cloneDeterministic(convictionImplementation, salt);
+        token = LibClone.cloneDeterministic(tokenImplementation, salt);
         IHigherrrrrrr(token).initialize(
             /// Constants from Factory
             weth,

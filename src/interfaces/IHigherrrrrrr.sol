@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
-interface IHigherrrrrrr is IERC20 {
+interface IHigherrrrrrr {
     /// @notice Unauthorized
     error Unauthorized();
 
@@ -194,10 +192,6 @@ interface IHigherrrrrrr is IERC20 {
     /// @notice Returns the current state of the market
     /// @return The market state
     function state() external view returns (MarketState memory);
-
-    /// @notice Returns the name of the token
-    /// @return The token name
-    function name() external view returns (string memory);
 
     /// @notice Returns the address of the Conviction NFT contract
     /// @return The Conviction NFT contract address

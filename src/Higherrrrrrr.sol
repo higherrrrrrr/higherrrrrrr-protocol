@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {IERC721TokenReceiver} from "forge-std/interfaces/IERC721.sol";
+import {ReentrancyGuard} from "solady/src/utils/ReentrancyGuard.sol";
+import {ERC20} from "solady/src/tokens/ERC20.sol";
+import {Initializable} from "solady/src/utils/Initializable.sol";
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
@@ -18,7 +19,7 @@ import {IWETH} from "./interfaces/IWETH.sol";
 /*
     higherrrrrrr
 */
-contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, ReentrancyGuardUpgradeable {
+contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyGuard, Initializable {
     using SafeTransferLib for address;
     using FixedPointMathLib for uint256;
 
@@ -50,7 +51,9 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
 
     /// @dev Evolution Storage
     uint16 internal constant MAX_NAME_LENGTH = 1024;
-    string internal basicTokenURI;
+    string internal baseName;
+    string internal baseImageURI;
+    string internal baseSymbol;
     PriceLevel[] public priceLevels;
     uint256 public numPriceLevels;
 
@@ -115,8 +118,9 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         }
 
         // ==== Effects ====================================================
-        __ERC20_init(_name, _symbol);
-        __ReentrancyGuard_init();
+
+        baseName = _name;
+        baseSymbol = _symbol;
 
         WETH = IWETH(_weth);
         protocolFeeRecipient = _protocolFeeRecipient;
@@ -130,7 +134,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         isWETHToken1 = address(_weth) >= address(this);
 
         // Token metadata
-        basicTokenURI = _tokenURI;
+        baseImageURI = _tokenURI;
         numPriceLevels = _priceLevels.length;
         priceLevels = _priceLevels;
 
@@ -162,23 +166,26 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
     /// ============================================
 
     /// @notice Dynamic name for evolution tokens
-    function name() public view virtual override(ERC20Upgradeable, IHigherrrrrrr) returns (string memory) {
-        if (tokenType == TokenType.REGULAR) return super.name();
+    function name() public view virtual override returns (string memory) {
+        if (tokenType == TokenType.REGULAR) return baseName;
 
         (, PriceLevel memory currentLevel) = getCurrentPriceLevel();
         return currentLevel.name;
     }
 
-    /// @dev Overrides ERC20's _update function to
-    ///      - Prevent transfers to the pool if the market has not graduated.
-    ///      - Emit the superset `HigherrrrrrrrTokenTransfer` event with each ERC20 transfer.
-    function _update(address from, address to, uint256 value) internal virtual override {
+    function symbol() public view virtual override returns (string memory) {
+        return baseSymbol;
+    }
+
+    /// @dev Prevents the token from being transferred to the Uniswap V3 pool when bonding
+    function _beforeTokenTransfer(address, address to, uint256) internal virtual override {
         if (marketType == MarketType.BONDING_CURVE && to == poolAddress) {
             revert InvalidMarketType();
         }
+    }
 
-        super._update(from, to, value);
-
+    /// @dev Emits a HigherrrrrrTokenTransfer event
+    function _afterTokenTransfer(address from, address to, uint256 value) internal virtual override {
         emit HigherrrrrrTokenTransfer(from, to, value, balanceOf(from), balanceOf(to), totalSupply());
     }
 
@@ -237,7 +244,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721Receiver, ERC20Upgradeable, Reent
         currentPrice = getCurrentPrice();
 
         if (currentPrice == 0) {
-            currentLevel = PriceLevel(0, super.name(), basicTokenURI);
+            currentLevel = PriceLevel(0, baseName, baseImageURI);
             return (currentPrice, currentLevel);
         }
 

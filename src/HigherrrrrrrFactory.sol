@@ -23,7 +23,6 @@ contract HigherrrrrrrFactory {
     address public immutable weth;
     address public immutable nonfungiblePositionManager;
     address public immutable swapRouter;
-    address public immutable bondingCurve;
     address public immutable tokenImplementation;
     address public immutable convictionImplementation;
 
@@ -34,20 +33,18 @@ contract HigherrrrrrrFactory {
         address _weth,
         address _nonfungiblePositionManager,
         address _swapRouter,
-        address _bondingCurve,
         address _tokenImplementation,
         address _convictionImplementation
     ) {
         if (
             _feeRecipient == address(0) || _weth == address(0) || _nonfungiblePositionManager == address(0)
-                || _swapRouter == address(0) || _bondingCurve == address(0)
+                || _swapRouter == address(0)
         ) revert ZeroAddress();
 
         feeRecipient = _feeRecipient;
         weth = _weth;
         nonfungiblePositionManager = _nonfungiblePositionManager;
         swapRouter = _swapRouter;
-        bondingCurve = _bondingCurve;
 
         // Deploy the Conviction NFT implementation once
         tokenImplementation = _tokenImplementation;
@@ -70,7 +67,6 @@ contract HigherrrrrrrFactory {
         IHigherrrrrrr(token).initialize(
             /// Constants from Factory
             weth,
-            bondingCurve,
             conviction,
             nonfungiblePositionManager,
             swapRouter,
@@ -90,7 +86,9 @@ contract HigherrrrrrrFactory {
         emit NewToken(token, conviction);
 
         if (msg.value > 0) {
-            token.safeTransferETH(msg.value);
+            IHigherrrrrrr(token).buy{value: msg.value}(
+                msg.sender, msg.sender, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
+            );
         }
     }
 

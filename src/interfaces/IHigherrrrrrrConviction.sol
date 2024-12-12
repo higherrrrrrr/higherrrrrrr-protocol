@@ -5,7 +5,7 @@ import {IHigherrrrrrr} from "./IHigherrrrrrr.sol";
 
 interface IHigherrrrrrrConviction {
     struct ConvictionDetails {
-        string evolution;
+        string name;
         string imageURI;
         uint256 amount;
         uint256 price;
@@ -14,7 +14,9 @@ interface IHigherrrrrrrConviction {
 
     function initialize(address _higherrrrrrr) external;
 
-    function mintConviction(address to, string memory evolution, string memory imageURI, uint256 amount, uint256 price)
+    function totalSupply() external view returns (uint256);
+
+    function mintConviction(address to, string memory name, string memory imageURI, uint256 amount, uint256 price)
         external
         returns (uint256);
 
@@ -26,7 +28,7 @@ interface IHigherrrrrrrConviction {
     function convictionDetails(uint256 tokenId)
         external
         view
-        returns (string memory evolution, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp);
+        returns (string memory name, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp);
 
     function higherrrrrrr() external view returns (IHigherrrrrrr);
 }

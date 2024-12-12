@@ -8,44 +8,14 @@ interface IHigherrrrrrr {
     /// @notice Thrown when an operation is attempted with a zero address
     error AddressZero(string variable);
 
-    /// @notice Thrown when an invalid market type is specified
+    /// @notice Thrown when an invalid market type
     error InvalidMarketType();
 
     /// @notice Thrown when there are insufficient funds for an operation
     error InsufficientFunds();
 
-    /// @notice Thrown when there is insufficient liquidity for a transaction
-    error InsufficientLiquidity();
-
     /// @notice Thrown when the slippage bounds are exceeded during a transaction
     error SlippageBoundsExceeded();
-
-    /// @notice Thrown when the initial order size is too large
-    error InitialOrderSizeTooLarge();
-
-    /// @notice Thrown when the ETH amount is too small for a transaction
-    error EthAmountTooSmall();
-
-    /// @notice Thrown when an ETH transfer fails
-    error EthTransferFailed();
-
-    /// @notice Thrown when an operation is attempted by an entity other than the pool
-    error OnlyPool();
-
-    /// @notice Thrown when an operation is attempted by an entity other than WETH
-    error OnlyWeth();
-
-    /// @notice Thrown when a market is not yet graduated
-    error MarketNotGraduated();
-
-    /// @notice Thrown when a market is already graduated
-    error MarketAlreadyGraduated();
-
-    /// @notice Thrown when there are too many price levels
-    error TooManyPriceLevels();
-
-    /// @notice Thrown when there are no price levels
-    error NoPriceLevels();
 
     /// @notice Thrown when price levels are invalid
     error InvalidPriceLevels();
@@ -238,7 +208,6 @@ interface IHigherrrrrrr {
 
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _weth The WETH token address
-    /// @param _bondingCurve The address of the bonding curve module
     /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
@@ -252,7 +221,6 @@ interface IHigherrrrrrr {
     function initialize(
         /// @dev Constants from Factory
         address _weth,
-        address _bondingCurve,
         address _convictionNFT,
         address _nonfungiblePositionManager,
         address _swapRouter,
@@ -267,6 +235,10 @@ interface IHigherrrrrrr {
         address _protocolFeeRecipient,
         address _creatorFeeRecipient
     ) external;
+
+    /// @notice Transfers creator fees to a new recipient
+    /// @param newCreatorFeeRecipient The new address to receive creator fees
+    function transferCreatorFeeRecipient(address newCreatorFeeRecipient) external;
 
     /// @notice Returns the total collectable fees from both trading and liquidity
     /// @return protocolETH The amount of ETH collectable by the protocol
@@ -324,4 +296,15 @@ interface IHigherrrrrrr {
     function collectLiquidityFees()
         external
         returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+
+    /// @notice Calculates the trading fee for a given amount
+    /// @param amount The amount to calculate the fee for
+    /// @return protocolFee The calculated fee
+    function calculateTradingFee(uint256 amount) external pure returns (uint256 protocolFee);
+
+    /// @notice Splits a fee amount between protocol and creator
+    /// @param amount The amount to split
+    /// @return protocolAmount The protocol's share
+    /// @return creatorAmount The creator's share
+    function calculateFeeSplit(uint256 amount) external pure returns (uint256 protocolAmount, uint256 creatorAmount);
 }

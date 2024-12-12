@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
+
 import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
 import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
 import {StringSanitizer} from "../src/libraries/StringSanitizer.sol";
@@ -36,9 +37,9 @@ contract HigherrrrrrrConvictionTest is Test {
         assertEq(conviction.ownerOf(tokenId), user1);
 
         // Check conviction details
-        (string memory evolution, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp) =
+        (string memory name, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp) =
             conviction.convictionDetails(tokenId);
-        assertEq(evolution, "highrrrrrr");
+        assertEq(name, "highrrrrrr");
         assertEq(imageURI, "");
         assertEq(amount, 1000e18);
         assertEq(price, 0.1 ether);

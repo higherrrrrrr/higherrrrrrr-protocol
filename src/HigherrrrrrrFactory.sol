@@ -57,39 +57,41 @@ contract HigherrrrrrrFactory {
     function createHigherrrrrrr(
         string calldata _name,
         string calldata _symbol,
-        string calldata _uri,
+        string calldata _baseTokenURI,
         IHigherrrrrrr.TokenType _tokenType,
-        IHigherrrrrrr.PriceLevel[] calldata _levels,
+        IHigherrrrrrr.PriceLevel[] calldata _priceLevels,
         address _creatorFeeRecipient
     ) external payable returns (address token, address conviction) {
         bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
 
-        // Clone the Conviction NFT implementation
+        // ==== Effects ====================================================
         conviction = Clones.cloneDeterministic(convictionImplementation, salt);
-        // Deploy token
         token = Clones.cloneDeterministic(tokenImplementation, salt);
-
-        IHigherrrrrrr(token).initialize{value: msg.value}(
+        IHigherrrrrrr(token).initialize(
+            /// Constants from Factory
             weth,
-            feeRecipient,
-            _creatorFeeRecipient,
+            bondingCurve,
+            conviction,
             nonfungiblePositionManager,
             swapRouter,
-            bondingCurve,
-            _tokenType,
-            _uri,
+            /// ERC20
             _name,
             _symbol,
-            _levels,
-            conviction
+            /// Evolution
+            _tokenType,
+            _baseTokenURI,
+            _priceLevels,
+            /// Fees
+            feeRecipient,
+            _creatorFeeRecipient
         );
 
-        // Initialize the Conviction NFT clone
-        IHigherrrrrrrConviction(conviction).initialize(token);
-
         tokens.push(token);
-
         emit NewToken(token, conviction);
+
+        if (msg.value > 0) {
+            token.safeTransferETH(msg.value);
+        }
     }
 
     function collectAllFees() external {

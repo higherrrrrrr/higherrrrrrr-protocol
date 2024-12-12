@@ -2,8 +2,11 @@
 pragma solidity ^0.8.23;
 
 interface IHigherrrrrrr {
+    /// @notice Unauthorized
+    error Unauthorized();
+
     /// @notice Thrown when an operation is attempted with a zero address
-    error AddressZero();
+    error AddressZero(string variable);
 
     /// @notice Thrown when an invalid market type is specified
     error InvalidMarketType();
@@ -234,32 +237,36 @@ interface IHigherrrrrrr {
     function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
 
     /// @notice Initializes a new Higherrrrrrr token
-    /// @param _protocolFeeRecipient The address to receive fees
-    /// @param _creatorFeeRecipient The address to receive fees
     /// @param _weth The WETH token address
+    /// @param _bondingCurve The address of the bonding curve module
+    /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
-    /// @param _bondingCurve The address of the bonding curve module
-    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
-    /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _name The token name
     /// @param _symbol The token symbol
+    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
+    /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _priceLevels The price levels and names
-    /// @param _convictionNFT The address of the conviction NFT contract
+    /// @param _protocolFeeRecipient The address to receive fees
+    /// @param _creatorFeeRecipient The address of the creator
     function initialize(
-        address _protocolFeeRecipient,
-        address _creatorFeeRecipient,
+        /// @dev Constants from Factory
         address _weth,
+        address _bondingCurve,
+        address _convictionNFT,
         address _nonfungiblePositionManager,
         address _swapRouter,
-        address _bondingCurve,
-        TokenType _tokenType,
-        string memory _tokenURI,
+        /// @dev ERC20
         string memory _name,
         string memory _symbol,
+        /// @dev Evolution
+        TokenType _tokenType,
+        string memory _tokenURI,
         PriceLevel[] calldata _priceLevels,
-        address _convictionNFT
-    ) external payable;
+        // @dev Fees
+        address _protocolFeeRecipient,
+        address _creatorFeeRecipient
+    ) external;
 
     /// @notice Returns the total collectable fees from both trading and liquidity
     /// @return protocolETH The amount of ETH collectable by the protocol

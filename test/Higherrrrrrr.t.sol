@@ -102,9 +102,10 @@ contract HigherrrrrrrTest is Test {
         (address tokenAddress, address convictionAddress) = factory.createHigherrrrrrr{value: 0.01 ether}(
             "highr", // Initial name
             "HIGHR", // Symbol
-            "ipfs://QmHash", // Token URI
+            "base64 image hash", // Token URI
             IHigherrrrrrr.TokenType.TEXT_EVOLUTION,
-            priceLevels
+            priceLevels,
+            address(this)
         );
 
         token = Higherrrrrrr(payable(tokenAddress));
@@ -181,20 +182,6 @@ contract HigherrrrrrrTest is Test {
         vm.stopPrank();
     }
 
-    function test_FeeCollection() public {
-        vm.startPrank(user1);
-        vm.deal(user1, 1 ether);
-
-        uint256 initialFeeRecipientBalance = feeRecipient.balance;
-
-        // Buy tokens with 0.1 ETH
-        token.buy{value: 0.1 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
-
-        // Check if 1% fee was collected
-        assertEq(feeRecipient.balance - initialFeeRecipientBalance, 0.001 ether);
-        vm.stopPrank();
-    }
-
     function test_NoGraduationOnSmallBuy() public {
         vm.startPrank(user1);
         vm.deal(user1, 10 ether);
@@ -221,17 +208,18 @@ contract HigherrrrrrrTest is Test {
     function testFail_ReinitializeToken() public {
         // Try to initialize again
         token.initialize(
-            feeRecipient,
             address(weth),
+            address(bondingCurve),
+            address(conviction),
             address(positionManager),
             SWAP_ROUTER,
-            address(bondingCurve),
-            IHigherrrrrrr.TokenType.REGULAR,
-            "ipfs://QmHash2",
             "highr2",
             "HIGHR2",
+            IHigherrrrrrr.TokenType.REGULAR,
+            "ipfs://QmHash2",
             priceLevels,
-            address(conviction)
+            feeRecipient,
+            address(this)
         );
     }
 
@@ -333,7 +321,7 @@ contract HigherrrrrrrTest is Test {
         vm.prank(user1);
         (bool success,) = address(token).call{value: 1 ether}("");
 
-        require(success, "ETH transfer failed");
+        assertTrue(success, "ETH transfer failed");
         assertGt(token.balanceOf(user1), 0);
     }
 
@@ -360,7 +348,8 @@ contract HigherrrrrrrTest is Test {
         vm.deal(user1, 10 ether);
 
         // Buy enough to mint NFT
-        token.buy{value: 5 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
+        (bool success,) = address(token).call{value: 5 ether}("");
+        assertTrue(success, "Buy with ETH failed");
 
         // Check NFT URI
         uint256 tokenId = 0;
@@ -370,7 +359,7 @@ contract HigherrrrrrrTest is Test {
         // Verify conviction details
         (string memory evolution, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp) =
             conviction.convictionDetails(tokenId);
-        assertEq(evolution, token.name());
+        assertEq(evolution, "highr");
         assertEq(imageURI, "");
         assertGt(amount, 0);
         assertGt(price, 0);

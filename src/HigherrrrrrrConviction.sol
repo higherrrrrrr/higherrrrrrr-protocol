@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
-import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
+import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
+import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {StringSanitizer} from "./libraries/StringSanitizer.sol";
 
-contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
+contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable, Initializable {
     using Strings for uint256;
 
     uint256 private _nextTokenId;
     IHigherrrrrrr public higherrrrrrr;
-    bool private initialized;
 
     // Add constants for text limits
     uint256 private constant MAX_INPUT_LENGTH = 1024;
@@ -25,21 +26,18 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
 
     constructor() ERC721("Higherrrrrrr Conviction", "CONVICTION") Ownable(msg.sender) {}
 
-    function initialize(address _higherrrrrrr) external {
-        require(!initialized, "Already initialized");
+    function initialize(address _higherrrrrrr) external initializer {
         require(_higherrrrrrr != address(0), "Invalid Higherrrrrrr address");
 
         higherrrrrrr = IHigherrrrrrr(_higherrrrrrr);
         _transferOwnership(_higherrrrrrr);
-        initialized = true;
     }
 
     function mintConviction(address to, string memory evolution, string memory imageURI, uint256 amount, uint256 price)
         external
+        onlyOwner
         returns (uint256 tokenId)
     {
-        require(msg.sender == address(higherrrrrrr), "Only Higherrrrrrr");
-
         tokenId = _nextTokenId++;
         convictionDetails[tokenId] = ConvictionDetails({
             evolution: evolution,
@@ -81,10 +79,10 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
             imageURI = details.imageURI;
         } else {
             // Sanitize strings for SVG context
-            string memory sanitizedEvolution = StringSanitizer.sanitize(details.evolution, 1);
-            string memory sanitizedAmount = StringSanitizer.sanitize((details.amount / 1e18).toString(), 1);
-            string memory sanitizedPrice = StringSanitizer.sanitize(priceInEth, 1);
-            string memory sanitizedTimestamp = StringSanitizer.sanitize(details.timestamp.toString(), 1);
+            string memory sanitizedEvolution = StringSanitizer.sanitizeSVG(details.evolution);
+            string memory sanitizedAmount = StringSanitizer.sanitizeSVG((details.amount / 1e18).toString());
+            string memory sanitizedPrice = StringSanitizer.sanitizeSVG(priceInEth);
+            string memory sanitizedTimestamp = StringSanitizer.sanitizeSVG(details.timestamp.toString());
 
             // Create SVG with sanitized values and text overflow handling
             string memory svg = string(
@@ -118,11 +116,11 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable {
         }
 
         // Sanitize strings for JSON context
-        string memory sanitizedEvolutionJson = StringSanitizer.sanitize(details.evolution, 2);
-        string memory sanitizedAmountJson = StringSanitizer.sanitize((details.amount / 1e18).toString(), 2);
-        string memory sanitizedPriceJson = StringSanitizer.sanitize(priceInEth, 2);
-        string memory sanitizedTimestampJson = StringSanitizer.sanitize(details.timestamp.toString(), 2);
-        string memory sanitizedTokenId = StringSanitizer.sanitize(tokenId.toString(), 2);
+        string memory sanitizedEvolutionJson = StringSanitizer.sanitizeJSON(details.evolution);
+        string memory sanitizedAmountJson = StringSanitizer.sanitizeJSON((details.amount / 1e18).toString());
+        string memory sanitizedPriceJson = StringSanitizer.sanitizeJSON(priceInEth);
+        string memory sanitizedTimestampJson = StringSanitizer.sanitizeJSON(details.timestamp.toString());
+        string memory sanitizedTokenId = StringSanitizer.sanitizeJSON(tokenId.toString());
 
         // Create metadata with sanitized values
         string memory json = Base64.encode(

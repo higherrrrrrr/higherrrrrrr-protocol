@@ -7,6 +7,8 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+  ETH_RPC_URL: https://mainnet.base.org
+
 
 jobs:
   check:

@@ -14,19 +14,7 @@ import {IUniswapV3Pool} from "../src/interfaces/IUniswapV3Pool.sol";
 import {ISwapRouter} from "../src/interfaces/ISwapRouter.sol";
 import {INonfungiblePositionManager} from "../src/interfaces/INonfungiblePositionManager.sol";
 
-contract ReentrancyAttacker {
-    Higherrrrrrr token;
-
-    constructor(address _token) {
-        token = Higherrrrrrr(payable(_token));
-    }
-
-    receive() external payable {
-        if (address(token).balance >= msg.value) {
-            token.sell(1e18, address(this), "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
-        }
-    }
-}
+import {ReentrancyAttacker} from "./helpers/ReentrancyAttacker.sol";
 
 contract HigherrrrrrrTest is Test {
     using FixedPointMathLib for uint256;
@@ -41,7 +29,6 @@ contract HigherrrrrrrTest is Test {
     ISwapRouter public constant SWAP_ROUTER = ISwapRouter(0x2626664c2603336E57B271c5C0b26F421741e481);
 
     address public protocolFeeRecipient;
-    address public creatorFeeRecipient;
     address public user1;
     address public user2;
 
@@ -65,7 +52,6 @@ contract HigherrrrrrrTest is Test {
 
         // Create test addresses
         protocolFeeRecipient = makeAddr("protocolFeeRecipient");
-        creatorFeeRecipient = makeAddr("creatorFeeRecipient");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
 
@@ -124,8 +110,7 @@ contract HigherrrrrrrTest is Test {
             "HIGHR", // Symbol
             "base64 image hash", // Token URI
             IHigherrrrrrr.TokenType.TEXT_EVOLUTION,
-            priceLevels,
-            creatorFeeRecipient
+            priceLevels
         );
 
         token = Higherrrrrrr(payable(tokenAddress));
@@ -139,6 +124,9 @@ contract HigherrrrrrrTest is Test {
         assertEq(token.symbol(), "HIGHR");
         assertEq(uint256(token.marketType()), uint256(IHigherrrrrrr.MarketType.BONDING_CURVE));
         assertEq(token.numPriceLevels(), 5);
+
+        assertEq(conviction.owner(), address(token));
+        assertEq(address(conviction.higherrrrrrr()), address(token));
     }
 
     function test_PriceLevelProgression() public {
@@ -227,14 +215,17 @@ contract HigherrrrrrrTest is Test {
             address(conviction),
             address(POSITION_MANAGER),
             address(SWAP_ROUTER),
+            protocolFeeRecipient,
             "highr2",
             "HIGHR2",
             IHigherrrrrrr.TokenType.REGULAR,
             "ipfs://QmHash2",
-            priceLevels,
-            protocolFeeRecipient,
-            address(this)
+            priceLevels
         );
+    }
+
+    function testFail_ReinitializeConviction() public {
+        conviction.initialize(address(0x1));
     }
 
     function testFail_UnauthorizedConvictionMint() public {
@@ -341,8 +332,7 @@ contract HigherrrrrrrTest is Test {
         vm.deal(user1, 10 ether);
 
         // Buy enough to mint NFT
-        (bool success,) = address(token).call{value: 5 ether}("");
-        assertTrue(success, "Buy with ETH failed");
+        token.buy{value: 5 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // Check NFT URI
         uint256 tokenId = 0;
@@ -352,6 +342,7 @@ contract HigherrrrrrrTest is Test {
         // Verify conviction details
         (string memory evolution, string memory imageURI, uint256 amount, uint256 price, uint256 timestamp) =
             conviction.convictionDetails(tokenId);
+
         assertEq(evolution, "highr");
         assertEq(imageURI, "");
         assertGt(amount, 0);
@@ -402,7 +393,7 @@ contract HigherrrrrrrTest is Test {
 
     function testFuzz_BuyWithRandomAmount(uint256 amount) public {
         // Bound amount between 0.0001 ether and 100 ether
-        amount = bound(amount, 0.0001 ether, 100 ether);
+        amount = bound(amount, token.MIN_ORDER_SIZE(), 100 ether);
 
         vm.deal(user1, amount);
         vm.startPrank(user1);
@@ -414,7 +405,7 @@ contract HigherrrrrrrTest is Test {
             assertCorrectMarketType();
         } catch {
             // If buy fails, verify we're in expected failure cases
-            assertTrue(amount < token.MIN_ORDER_SIZE() || token.totalSupply() == MAX_TOTAL_SUPPLY);
+            assertTrue(token.totalSupply() == MAX_TOTAL_SUPPLY);
         }
 
         vm.stopPrank();
@@ -454,7 +445,7 @@ contract HigherrrrrrrTest is Test {
     }
 
     function testFuzz_ConvictionMinting(uint256 buyAmount, string calldata message) public {
-        buyAmount = bound(buyAmount, 0.1 ether, 10 ether);
+        buyAmount = bound(buyAmount, token.MIN_ORDER_SIZE(), 10 ether);
         vm.assume(bytes(message).length <= 280); // Twitter-like length limit
 
         vm.deal(user1, buyAmount);
@@ -473,7 +464,7 @@ contract HigherrrrrrrTest is Test {
         string memory previousName = token.name();
 
         for (uint256 i = 0; i < buySequence.length; i++) {
-            uint256 amount = bound(buySequence[i], 0.0001 ether, 5 ether);
+            uint256 amount = bound(buySequence[i], token.MIN_ORDER_SIZE(), 5 ether);
             vm.deal(user1, amount);
             vm.prank(user1);
 
@@ -490,7 +481,7 @@ contract HigherrrrrrrTest is Test {
     }
 
     function testFuzz_SlippageProtection(uint256 buyAmount, uint256 minTokens) public {
-        buyAmount = bound(buyAmount, 0.1 ether, 10 ether);
+        buyAmount = bound(buyAmount, token.MIN_ORDER_SIZE(), 10 ether);
         vm.deal(user1, buyAmount);
 
         uint256 expectedTokens = token.getEthBuyQuote(buyAmount - token.calculateTradingFee(buyAmount));
@@ -506,182 +497,61 @@ contract HigherrrrrrrTest is Test {
         vm.stopPrank();
     }
 
-    function test_CollectTradingFees() public {
-        vm.deal(user1, 10 ether);
+    function testFuzz_GoHarderrrrrrr(uint256 value) public {
+        value = bound(value, 0.1 ether, 10 ether);
+        uint256 t0_ProtocolBalance = protocolFeeRecipient.balance;
 
-        // Buy tokens to generate trading fees
-        vm.prank(user1);
-        token.buy{value: 1 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
-
-        // Get initial balances
-        uint256 protocolInitialETH = protocolFeeRecipient.balance;
-        uint256 creatorInitialETH = creatorFeeRecipient.balance;
-
-        // Check collectable amounts
-        (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens) =
-            token.collectableTradingFees();
-
-        assertNotEq(protocolETH, 0, "Protocol ETH fee should be non-zero");
-        assertNotEq(creatorETH, 0, "Creator ETH fee should be non-zero");
-        assertEq(protocolTokens, 0, "No token fees should be collected yet");
-        assertEq(creatorTokens, 0, "No token fees should be collected yet");
-
-        // Collect the fees
-        token.collectTradingFees();
-
-        // Verify balances changed correctly
-        assertEq(
-            protocolFeeRecipient.balance - protocolInitialETH,
-            protocolETH,
-            "Protocol recipient should receive correct ETH"
-        );
-        assertEq(
-            creatorFeeRecipient.balance - creatorInitialETH, creatorETH, "Creator recipient should receive correct ETH"
-        );
-
-        // Verify fees were reset
-        (uint256 protocolETHAfter, uint256 creatorETHAfter,,) = token.collectableTradingFees();
-        assertEq(protocolETHAfter, 0, "Protocol fees should be reset");
-        assertEq(creatorETHAfter, 0, "Creator fees should be reset");
-    }
-
-    function test_CollectLiquidityFees() public {
-        // Get initial balances
-        uint256 protocolInitialETH = protocolFeeRecipient.balance;
-        uint256 creatorInitialETH = creatorFeeRecipient.balance;
-        uint256 protocolInitialTokens = token.balanceOf(protocolFeeRecipient);
-        uint256 creatorInitialTokens = token.balanceOf(creatorFeeRecipient);
-
-        uint256 protocolETH;
-        uint256 creatorETH;
-        uint256 protocolTokens;
-        uint256 creatorTokens;
-
-        // First graduate the market to Uniswap
-        vm.deal(user1, 16 ether);
+        vm.deal(user1, 42 ether);
         vm.startPrank(user1);
-        uint256 tokensBought = token.buy{value: 8 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
-        // Check collectable amounts
-        (protocolETH, creatorETH, protocolTokens, creatorTokens) = token.collectableLiquidityFees();
+        // Buy tokens to graduate to Uniswap
+        token.buy{value: 10 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
+        assertEq(uint256(token.marketType()), uint256(IHigherrrrrrr.MarketType.UNISWAP_POOL));
 
-        // There shouldn't be any liquidity fees yet
-        assertEq(protocolETH, 0, "Protocol ETH fee should be zero");
-        assertEq(creatorETH, 0, "Creator ETH fee should be zero");
-        assertEq(protocolTokens, 0, "Protocol token fee should be zero");
-        assertEq(creatorTokens, 0, "Creator token fee should be zero");
+        uint256 t1_ProtocolBalance = protocolFeeRecipient.balance;
+        assertGe(t1_ProtocolBalance, t0_ProtocolBalance, "t1_balance < t0_balance");
+
+        (uint256 reinvestableWETH, uint256 reinvestableTokens) = token.howMuchHarderrrrrrr();
+        assertEq(reinvestableWETH, 0, "Should not have any WETH to reinvest");
+        assertEq(reinvestableTokens, 0, "Should not have any tokens to reinvest");
+        // Buy tokens to generate LP fees
+        uint256 tokensBought = token.buy{value: value}(user1, user1, "", IHigherrrrrrr.MarketType.UNISWAP_POOL, 0, 0);
+        uint256 accumulatedFees = token.calculateTradingFee(value);
+
+        uint256 t2_ProtocolBalance = protocolFeeRecipient.balance;
+        assertEq(t2_ProtocolBalance, t1_ProtocolBalance + accumulatedFees, "t2_balance != t1_balance + fees");
 
         // Make some trades
-        token.approve(address(token), tokensBought);
-        token.sell(tokensBought, user1, "", IHigherrrrrrr.MarketType.UNISWAP_POOL, 0, 0);
-        token.buy{value: 4.2 ether}(user1, user1, "", IHigherrrrrrr.MarketType.UNISWAP_POOL, 0, 0);
+        for (uint256 i = 0; i < 100; i++) {
+            token.approve(address(token), tokensBought);
+            // Sell fees
+            uint256 ethReceived = token.sell(tokensBought, user1, "", IHigherrrrrrr.MarketType.UNISWAP_POOL, 0, 0);
+            uint256 sellFee = token.calculateTradingMarkup(ethReceived);
+            accumulatedFees += sellFee;
+            // Buy fees
+            token.buy{value: value}(user1, user1, "", IHigherrrrrrr.MarketType.UNISWAP_POOL, 0, 0);
+            uint256 buyFee = token.calculateTradingFee(value);
+            accumulatedFees += buyFee;
+        }
+
+        uint256 t3_ProtocolBalance = protocolFeeRecipient.balance;
+        assertApproxEqRelDecimal({
+            left: t3_ProtocolBalance,
+            right: t2_ProtocolBalance + accumulatedFees,
+            maxPercentDelta: 1e16, // 1% (1e18 is 100%)
+            decimals: 18,
+            err: "Incorrect fee accumulation"
+        });
 
         vm.stopPrank();
 
-        // Collect the fees
-        (protocolETH, creatorETH, protocolTokens, creatorTokens) = token.collectLiquidityFees();
+        (uint256 reinvestedWETH, uint256 reinvestedTokens) = token.goHarderrrrrrr();
+        console2.log("reinvestedWETH", reinvestedWETH);
+        console2.log("reinvestedTokens", reinvestedTokens);
 
-        // Verify balances changed correctly
-        assertEq(
-            creatorFeeRecipient.balance - creatorInitialETH, creatorETH, "Creator recipient should receive correct ETH"
-        );
-        assertEq(
-            protocolFeeRecipient.balance - protocolInitialETH,
-            protocolETH,
-            "Protocol recipient should receive correct ETH"
-        );
-        assertEq(
-            token.balanceOf(creatorFeeRecipient) - creatorInitialTokens,
-            creatorTokens,
-            "Creator recipient should receive correct tokens"
-        );
-        // Using >= since upon pool creation excess tokens are sent to the protocol
-        assertGe(
-            token.balanceOf(protocolFeeRecipient) - protocolInitialTokens,
-            protocolTokens,
-            "Protocol recipient should receive correct tokens"
-        );
-    }
-
-    function test_CollectAllFees() public {
-        // Generate both trading and liquidity fees
-
-        // 1. Generate trading fees
-        vm.deal(user1, 10 ether);
-        vm.prank(user1);
-        token.buy{value: 4.2 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
-
-        // Get initial balances
-        uint256 protocolInitialETH = protocolFeeRecipient.balance;
-        uint256 creatorInitialETH = creatorFeeRecipient.balance;
-        uint256 protocolInitialTokens = token.balanceOf(protocolFeeRecipient);
-        uint256 creatorInitialTokens = token.balanceOf(creatorFeeRecipient);
-
-        uint256 protocolETH;
-        uint256 creatorETH;
-        uint256 protocolTokens;
-        uint256 creatorTokens;
-
-        // Collect all fees
-        (protocolETH, creatorETH, protocolTokens, creatorTokens) = token.collect();
-
-        // Verify balances changed correctly
-        assertEq(
-            protocolFeeRecipient.balance - protocolInitialETH,
-            protocolETH,
-            "Protocol recipient should receive correct ETH"
-        );
-        assertEq(
-            creatorFeeRecipient.balance - creatorInitialETH, creatorETH, "Creator recipient should receive correct ETH"
-        );
-        assertEq(
-            token.balanceOf(protocolFeeRecipient) - protocolInitialTokens,
-            protocolTokens,
-            "Protocol recipient should receive correct tokens"
-        );
-        assertEq(
-            token.balanceOf(creatorFeeRecipient) - creatorInitialTokens,
-            creatorTokens,
-            "Creator recipient should receive correct tokens"
-        );
-
-        // Verify all fees were reset
-        (uint256 protocolETHAfter, uint256 creatorETHAfter, uint256 protocolTokensAfter, uint256 creatorTokensAfter) =
-            token.collectable();
-        assertEq(protocolETHAfter, 0, "Protocol ETH fees should be reset");
-        assertEq(creatorETHAfter, 0, "Creator ETH fees should be reset");
-        assertEq(protocolTokensAfter, 0, "Protocol token fees should be reset");
-        assertEq(creatorTokensAfter, 0, "Creator token fees should be reset");
-    }
-
-    function test_TransferCreatorFees() public {
-        address newCreator = makeAddr("newCreator");
-
-        // Try to transfer as non-creator (should fail)
-        vm.prank(user1);
-        vm.expectRevert(IHigherrrrrrr.Unauthorized.selector);
-        token.transferCreatorFeeRecipient(newCreator);
-
-        // Transfer as creator (should succeed)
-        vm.prank(creatorFeeRecipient);
-        token.transferCreatorFeeRecipient(newCreator);
-
-        assertEq(token.creatorFeeRecipient(), newCreator, "Creator fee recipient should be updated");
-    }
-
-    function test_FeeCollectionEdgeCases() public {
-        // Test collecting fees when amounts are 0
-        vm.startPrank(user1);
-        vm.deal(user1, 0.001 ether);
-        token.buy{value: 0.001 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
-
-        (uint256 protocolETH, uint256 creatorETH,,) = token.collectTradingFees();
-        assertGt(protocolETH + creatorETH, 0, "Should collect non-zero fees");
-
-        // Test collecting again immediately
-        (protocolETH, creatorETH,,) = token.collectTradingFees();
-        assertEq(protocolETH + creatorETH, 0, "Should have no fees to collect");
-        vm.stopPrank();
+        uint256 t4_ProtocolBalance = protocolFeeRecipient.balance;
+        assertGe(t4_ProtocolBalance, t3_ProtocolBalance, "Should have collected dust ETH");
+        assertGe(token.balanceOf(protocolFeeRecipient), 0, "Should have collected dust tokens");
     }
 
     function test_ReentrancyProtection() public {
@@ -707,6 +577,7 @@ contract HigherrrrrrrTest is Test {
     function test_PoolPositionManagement() public {
         // Graduate market first
         vm.deal(user1, 1000 ether);
+
         vm.prank(user1);
         token.buy{value: 8.1 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 

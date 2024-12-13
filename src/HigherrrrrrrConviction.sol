@@ -27,8 +27,8 @@ contract HigherrrrrrrConviction is IHigherrrrrrrConviction, ERC721, Ownable, Ini
         higherrrrrrr = IHigherrrrrrr(_higherrrrrrr);
     }
 
-    function name() public view override returns (string memory) {
-        return IERC20(address(higherrrrrrr)).name();
+    function name() public pure override returns (string memory) {
+        return "Higherrrrrrr Conviction";
     }
 
     function symbol() public pure override returns (string memory) {

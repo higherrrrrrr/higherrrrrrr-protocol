@@ -12,7 +12,6 @@ contract HigherrrrrrrFactory {
     using SafeTransferLib for address;
     using FixedPointMathLib for uint256;
 
-    error Unauthorized();
     error ZeroAddress();
 
     event NewToken(address indexed token, address indexed conviction);
@@ -24,8 +23,6 @@ contract HigherrrrrrrFactory {
     address public immutable swapRouter;
     address public immutable tokenImplementation;
     address public immutable convictionImplementation;
-
-    address[] public tokens;
 
     constructor(
         address _feeRecipient,
@@ -55,8 +52,7 @@ contract HigherrrrrrrFactory {
         string calldata _symbol,
         string calldata _baseTokenURI,
         IHigherrrrrrr.TokenType _tokenType,
-        IHigherrrrrrr.PriceLevel[] calldata _priceLevels,
-        address _creatorFeeRecipient
+        IHigherrrrrrr.PriceLevel[] calldata _priceLevels
     ) external payable returns (address token, address conviction) {
         bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
 
@@ -69,46 +65,23 @@ contract HigherrrrrrrFactory {
             conviction,
             nonfungiblePositionManager,
             swapRouter,
+            /// Fees
+            feeRecipient,
             /// ERC20
             _name,
             _symbol,
             /// Evolution
             _tokenType,
             _baseTokenURI,
-            _priceLevels,
-            /// Fees
-            feeRecipient,
-            _creatorFeeRecipient
+            _priceLevels
         );
 
-        tokens.push(token);
         emit NewToken(token, conviction);
 
         if (msg.value > 0) {
             IHigherrrrrrr(token).buy{value: msg.value}(
-                msg.sender, msg.sender, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
+                msg.sender, msg.sender, "Hello World", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
             );
-        }
-    }
-
-    function collectAllFees() external {
-        uint256 tokenCount = tokens.length;
-        for (uint256 i = 0; i < tokenCount;) {
-            IHigherrrrrrr(tokens[i]).collect();
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    function collectFees(address[] calldata _tokens) public {
-        uint256 tokenCount = _tokens.length;
-
-        for (uint256 i = 0; i < tokenCount;) {
-            IHigherrrrrrr(_tokens[i]).collect();
-            unchecked {
-                ++i;
-            }
         }
     }
 }

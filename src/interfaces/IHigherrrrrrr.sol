@@ -46,8 +46,6 @@ interface IHigherrrrrrr {
         string imageURI;
     }
 
-    function availableTradingFees() external view returns (uint256);
-
     /// @notice Emitted when a token is bought
     /// @param buyer The address of the buyer
     /// @param recipient The address of the recipient
@@ -219,100 +217,45 @@ interface IHigherrrrrrr {
     /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
+    /// @param _protocolFeeRecipient The address to receive fees
     /// @param _name The token name
     /// @param _symbol The token symbol
     /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
     /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _priceLevels The price levels and names
-    /// @param _protocolFeeRecipient The address to receive fees
-    /// @param _creatorFeeRecipient The address of the creator
     function initialize(
         /// @dev Constants from Factory
         address _weth,
         address _convictionNFT,
         address _nonfungiblePositionManager,
         address _swapRouter,
+        address _protocolFeeRecipient,
         /// @dev ERC20
         string memory _name,
         string memory _symbol,
         /// @dev Evolution
         TokenType _tokenType,
         string memory _tokenURI,
-        PriceLevel[] calldata _priceLevels,
-        // @dev Fees
-        address _protocolFeeRecipient,
-        address _creatorFeeRecipient
+        PriceLevel[] calldata _priceLevels
     ) external;
 
-    /// @notice Transfers creator fees to a new recipient
-    /// @param newCreatorFeeRecipient The new address to receive creator fees
-    function transferCreatorFeeRecipient(address newCreatorFeeRecipient) external;
+    /// @notice Returns the amount of WETH and tokens that can be reinvested from LP fees
+    /// @return wethAmount The amount of WETH that can be reinvested
+    /// @return tokenAmount The amount of tokens that can be reinvested
+    function howMuchHarderrrrrrr() external view returns (uint256 wethAmount, uint256 tokenAmount);
 
-    /// @notice Returns the total collectable fees from both trading and liquidity
-    /// @return protocolETH The amount of ETH collectable by the protocol
-    /// @return creatorETH The amount of ETH collectable by the creator
-    /// @return protocolTokens The amount of tokens collectable by the protocol
-    /// @return creatorTokens The amount of tokens collectable by the creator
-    function collectable()
-        external
-        view
-        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
-
-    /// @notice Returns the collectable fees from liquidity provision
-    /// @return protocolETH The amount of ETH collectable by the protocol
-    /// @return creatorETH The amount of ETH collectable by the creator
-    /// @return protocolTokens The amount of tokens collectable by the protocol
-    /// @return creatorTokens The amount of tokens collectable by the creator
-    function collectableLiquidityFees()
-        external
-        view
-        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
-
-    /// @notice Returns the collectable fees from trading
-    /// @return protocolETH The amount of ETH collectable by the protocol
-    /// @return creatorETH The amount of ETH collectable by the creator
-    /// @return protocolTokens The amount of tokens collectable by the protocol
-    /// @return creatorTokens The amount of tokens collectable by the creator
-    function collectableTradingFees()
-        external
-        view
-        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
-
-    /// @notice Collects all fees from both trading and liquidity
-    /// @return protocolETH The amount of ETH collected by the protocol
-    /// @return creatorETH The amount of ETH collected by the creator
-    /// @return protocolTokens The amount of tokens collected by the protocol
-    /// @return creatorTokens The amount of tokens collected by the creator
-    function collect()
-        external
-        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
-
-    /// @notice Collects fees from trading only
-    /// @return protocolETH The amount of ETH collected by the protocol
-    /// @return creatorETH The amount of ETH collected by the creator
-    /// @return protocolTokens The amount of tokens collected by the protocol
-    /// @return creatorTokens The amount of tokens collected by the creator
-    function collectTradingFees()
-        external
-        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
-
-    /// @notice Collects fees from liquidity provision only
-    /// @return protocolETH The amount of ETH collected by the protocol
-    /// @return creatorETH The amount of ETH collected by the creator
-    /// @return protocolTokens The amount of tokens collected by the protocol
-    /// @return creatorTokens The amount of tokens collected by the creator
-    function collectLiquidityFees()
-        external
-        returns (uint256 protocolETH, uint256 creatorETH, uint256 protocolTokens, uint256 creatorTokens);
+    /// @notice Collects and reinvests LP fees back into the pool
+    /// @return wethAmount The amount of WETH reinvested into the pool
+    /// @return tokenAmount The amount of tokens reinvested into the pool
+    function goHarderrrrrrr() external returns (uint256 wethAmount, uint256 tokenAmount);
 
     /// @notice Calculates the trading fee for a given amount
     /// @param amount The amount to calculate the fee for
     /// @return protocolFee The calculated fee
     function calculateTradingFee(uint256 amount) external pure returns (uint256 protocolFee);
 
-    /// @notice Splits a fee amount between protocol and creator
-    /// @param amount The amount to split
-    /// @return protocolAmount The protocol's share
-    /// @return creatorAmount The creator's share
-    function calculateFeeSplit(uint256 amount) external pure returns (uint256 protocolAmount, uint256 creatorAmount);
+    /// @notice Calculates the trading markup for a desired amount
+    /// @param desiredAmount The desired amount to calculate the markup for
+    /// @return protocolFee The calculated markup fee
+    function calculateTradingMarkup(uint256 desiredAmount) external pure returns (uint256 protocolFee);
 }

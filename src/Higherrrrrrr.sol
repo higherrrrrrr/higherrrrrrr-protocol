@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {console2} from "forge-std/console2.sol";
 import {IERC721TokenReceiver} from "forge-std/interfaces/IERC721.sol";
 import {ReentrancyGuard} from "solady/src/utils/ReentrancyGuard.sol";
 import {ERC20} from "solady/src/tokens/ERC20.sol";
@@ -586,7 +585,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             protocolFeeRecipient.forceSafeTransferETH(fee);
         }
 
-        uint256 recipientBalance = balanceOf(recipient);
         emit HigherrrrrrTokenBuy(
             msg.sender,
             recipient,
@@ -594,7 +592,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             fee,
             totalCost,
             trueOrderSize,
-            recipientBalance,
+            balanceOf(recipient),
             comment,
             totalSupply(),
             marketType
@@ -638,9 +636,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         } else {
             payout = _uniswapSell(msg.sender, tokensToSell, minPayoutSize, sqrtPriceLimitX96);
         }
-        string memory sellComment = comment;
-        uint256 recipientBalance = balanceOf(recipient);
-        uint256 soldTokens = tokensToSell;
 
         // Handle the fees
         uint256 fee = calculateTradingFee(payout);
@@ -655,9 +650,9 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             payout,
             fee,
             payoutAfterFee,
-            soldTokens,
-            recipientBalance,
-            sellComment,
+            tokensToSell,
+            balanceOf(recipient),
+            comment,
             totalSupply(),
             marketType
         );

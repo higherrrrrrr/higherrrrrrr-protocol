@@ -679,23 +679,10 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         protocolFee = desiredAmountOut.mulDiv(10_000, 10_000 - TRADING_FEE_BPS) - desiredAmountOut;
     }
 
-    /// @dev Returns the amount of WETH and tokens that can be reinvested
-    /// @return wethAmount The amount of WETH that can be reinvested
-    /// @return tokenAmount The amount of tokens that can be reinvested
-    function howMuchHarderrrrrrr() external view returns (uint256 wethAmount, uint256 tokenAmount) {
-        (,,,,,,,,,, uint128 token0Owed, uint128 token1Owed) = nonfungiblePositionManager.positions(positionId);
-
-        if (isWETHToken1) {
-            (tokenAmount, wethAmount) = (uint256(token1Owed), uint256(token0Owed));
-        } else {
-            (wethAmount, tokenAmount) = (uint256(token0Owed), uint256(token1Owed));
-        }
-    }
-
     /// @dev Pulls liquidity and converts WETH to ETH
     /// @return wethAmount The amount of WETH reinvested into the pool
     /// @return tokenAmount The amount of tokens reinvested into the pool
-    function goHarderrrrrrr() external returns (uint256 wethAmount, uint256 tokenAmount) {
+    function harderrrrrrr() external returns (uint256 wethAmount, uint256 tokenAmount) {
         (uint256 collectedToken0, uint256 collectedToken1) = nonfungiblePositionManager.collect(
             INonfungiblePositionManager.CollectParams({
                 tokenId: positionId,

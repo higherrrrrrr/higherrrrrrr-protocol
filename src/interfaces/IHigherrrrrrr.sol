@@ -239,15 +239,10 @@ interface IHigherrrrrrr {
         PriceLevel[] calldata _priceLevels
     ) external;
 
-    /// @notice Returns the amount of WETH and tokens that can be reinvested from LP fees
-    /// @return wethAmount The amount of WETH that can be reinvested
-    /// @return tokenAmount The amount of tokens that can be reinvested
-    function howMuchHarderrrrrrr() external view returns (uint256 wethAmount, uint256 tokenAmount);
-
     /// @notice Collects and reinvests LP fees back into the pool
     /// @return wethAmount The amount of WETH reinvested into the pool
     /// @return tokenAmount The amount of tokens reinvested into the pool
-    function goHarderrrrrrr() external returns (uint256 wethAmount, uint256 tokenAmount);
+    function harderrrrrrr() external returns (uint256 wethAmount, uint256 tokenAmount);
 
     /// @notice Calculates the trading fee for a given amount
     /// @param amount The amount to calculate the fee for

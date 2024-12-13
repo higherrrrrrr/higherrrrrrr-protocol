@@ -511,9 +511,6 @@ contract HigherrrrrrrTest is Test {
         uint256 t1_ProtocolBalance = protocolFeeRecipient.balance;
         assertGe(t1_ProtocolBalance, t0_ProtocolBalance, "t1_balance < t0_balance");
 
-        (uint256 reinvestableWETH, uint256 reinvestableTokens) = token.howMuchHarderrrrrrr();
-        assertEq(reinvestableWETH, 0, "Should not have any WETH to reinvest");
-        assertEq(reinvestableTokens, 0, "Should not have any tokens to reinvest");
         // Buy tokens to generate LP fees
         uint256 tokensBought = token.buy{value: value}(user1, user1, "", IHigherrrrrrr.MarketType.UNISWAP_POOL, 0, 0);
         uint256 accumulatedFees = token.calculateTradingFee(value);
@@ -545,7 +542,7 @@ contract HigherrrrrrrTest is Test {
 
         vm.stopPrank();
 
-        (uint256 reinvestedWETH, uint256 reinvestedTokens) = token.goHarderrrrrrr();
+        (uint256 reinvestedWETH, uint256 reinvestedTokens) = token.harderrrrrrr();
         console2.log("reinvestedWETH", reinvestedWETH);
         console2.log("reinvestedTokens", reinvestedTokens);
 

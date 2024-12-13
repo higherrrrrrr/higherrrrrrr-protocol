@@ -110,10 +110,9 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         if (_priceLevels.length == 0) revert InvalidPriceLevels();
         for (uint256 i = _priceLevels.length; i != 0;) {
             unchecked {
-                --i;
-            }
-            if (bytes(_priceLevels[i].name).length > MAX_NAME_LENGTH) {
-                revert InvalidPriceLevels();
+                if (bytes(_priceLevels[--i].name).length > MAX_NAME_LENGTH) {
+                    revert InvalidPriceLevels();
+                }
             }
         }
 
@@ -211,7 +210,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
     function getCurrentPrice() public view returns (uint256) {
         if (marketType == MarketType.BONDING_CURVE) {
             // Calculate current price from bonding curve
-            return (1 ether * 1e18) / this.getEthBuyQuote(1 ether); // Price in wei per token
+            return (1 ether * 1e18) / BondingCurve.getEthBuyQuote(totalSupply(), 1 ether); // Price in wei per token
         }
 
         // Uniswap pool price calculation
@@ -331,7 +330,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         uint256 remainingEth = totalCost - fee;
 
         // Get quote for the number of tokens that can be bought with the amount of ETH remaining
-        trueOrderSize = this.getEthBuyQuote(remainingEth);
+        trueOrderSize = BondingCurve.getEthBuyQuote(totalSupply(), remainingEth);
 
         // Ensure the order size is greater than the minimum order size
         if (trueOrderSize < minOrderSize) revert SlippageBoundsExceeded();
@@ -348,7 +347,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             trueOrderSize = maxRemainingTokens;
 
             // Calculate the amount of ETH needed to buy the remaining tokens
-            uint256 ethNeeded = this.getTokenBuyQuote(trueOrderSize);
+            uint256 ethNeeded = BondingCurve.getTokenBuyQuote(totalSupply(), trueOrderSize);
 
             // Recalculate the fee with the updated order size
             fee = calculateTradingFee(ethNeeded);
@@ -366,7 +365,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
     /// @dev Handles a bonding curve sell order
     function _handleBondingCurveSell(uint256 tokensToSell, uint256 minPayoutSize) private returns (uint256 payout) {
         // Get quote for the number of ETH that can be received for the number of tokens to sell
-        payout = this.getTokenSellQuote(tokensToSell);
+        payout = BondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
 
         // Ensure the payout is greater than the minimum payout size
         if (payout < minPayoutSize) revert SlippageBoundsExceeded();

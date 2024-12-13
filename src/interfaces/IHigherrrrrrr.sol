@@ -2,47 +2,20 @@
 pragma solidity ^0.8.23;
 
 interface IHigherrrrrrr {
-    /// @notice Thrown when an operation is attempted with a zero address
-    error AddressZero();
+    /// @notice Unauthorized
+    error Unauthorized();
 
-    /// @notice Thrown when an invalid market type is specified
+    /// @notice Thrown when an operation is attempted with a zero address
+    error AddressZero(string variable);
+
+    /// @notice Thrown when an invalid market type
     error InvalidMarketType();
 
     /// @notice Thrown when there are insufficient funds for an operation
     error InsufficientFunds();
 
-    /// @notice Thrown when there is insufficient liquidity for a transaction
-    error InsufficientLiquidity();
-
     /// @notice Thrown when the slippage bounds are exceeded during a transaction
     error SlippageBoundsExceeded();
-
-    /// @notice Thrown when the initial order size is too large
-    error InitialOrderSizeTooLarge();
-
-    /// @notice Thrown when the ETH amount is too small for a transaction
-    error EthAmountTooSmall();
-
-    /// @notice Thrown when an ETH transfer fails
-    error EthTransferFailed();
-
-    /// @notice Thrown when an operation is attempted by an entity other than the pool
-    error OnlyPool();
-
-    /// @notice Thrown when an operation is attempted by an entity other than WETH
-    error OnlyWeth();
-
-    /// @notice Thrown when a market is not yet graduated
-    error MarketNotGraduated();
-
-    /// @notice Thrown when a market is already graduated
-    error MarketAlreadyGraduated();
-
-    /// @notice Thrown when there are too many price levels
-    error TooManyPriceLevels();
-
-    /// @notice Thrown when there are no price levels
-    error NoPriceLevels();
 
     /// @notice Thrown when price levels are invalid
     error InvalidPriceLevels();
@@ -140,7 +113,7 @@ interface IHigherrrrrrr {
     /// @notice Emitted when fees are distributed
     /// @param feeRecipient The address of the fee recipient
     /// @param fee The fee amount
-    event HigherrrrrrTokenFees(address indexed feeRecipient, uint256 fee);
+    event HigherrrrrrTokenFees(address indexed feeRecipient, address token, uint256 fee);
 
     /// @notice Emitted when a market graduates
     /// @param tokenAddress The address of the token
@@ -199,6 +172,16 @@ interface IHigherrrrrrr {
     /// @return The number of tokens that can be bought
     function getEthBuyQuote(uint256 amount) external view returns (uint256);
 
+    /// @notice Provides a quote for selling a given amount of ETH
+    /// @param amount The amount of ETH
+    /// @return The number of tokens that can be received
+    function getEthSellQuote(uint256 amount) external view returns (uint256);
+
+    /// @notice Provides a quote for buying a given number of tokens
+    /// @param amount The number of tokens
+    /// @return The amount of ETH needed
+    function getTokenBuyQuote(uint256 amount) external view returns (uint256);
+
     /// @notice Provides a quote for selling a given number of tokens
     /// @param amount The number of tokens
     /// @return The amount of ETH that can be received
@@ -207,10 +190,6 @@ interface IHigherrrrrrr {
     /// @notice Returns the current state of the market
     /// @return The market state
     function state() external view returns (MarketState memory);
-
-    /// @notice Returns the name of the token
-    /// @return The token name
-    function name() external view returns (string memory);
 
     /// @notice Returns the address of the Conviction NFT contract
     /// @return The Conviction NFT contract address
@@ -233,39 +212,45 @@ interface IHigherrrrrrr {
     /// @return currentLevel The current price level
     function getCurrentPriceLevel() external view returns (uint256 currentPrice, PriceLevel memory currentLevel);
 
-    /// @notice Returns the available fees for the position
-    /// @return tokensOwed0 The number of WETH tokens owed to the position
-    /// @return tokensOwed1 The number of tokens owed to the position
-    function availableFees() external view returns (uint128, uint128);
-
-    /// @notice Collects fees from the position
-    /// @return amount0 The number of token0 collected
-    /// @return amount1 The number of token1 collected
-    function collectFees() external returns (uint256, uint256);
-
     /// @notice Initializes a new Higherrrrrrr token
-    /// @param _feeRecipient The address to receive fees
     /// @param _weth The WETH token address
+    /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
-    /// @param _bondingCurve The address of the bonding curve module
-    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
-    /// @param _tokenURI The basic token URI for the Conviction NFT
+    /// @param _protocolFeeRecipient The address to receive fees
     /// @param _name The token name
     /// @param _symbol The token symbol
+    /// @param _tokenType The type of token (REGULAR or TEXT_EVOLUTION)
+    /// @param _tokenURI The basic token URI for the Conviction NFT
     /// @param _priceLevels The price levels and names
-    /// @param _convictionNFT The address of the conviction NFT contract
     function initialize(
-        address _feeRecipient,
+        /// @dev Constants from Factory
         address _weth,
+        address _convictionNFT,
         address _nonfungiblePositionManager,
         address _swapRouter,
-        address _bondingCurve,
-        TokenType _tokenType,
-        string memory _tokenURI,
+        address _protocolFeeRecipient,
+        /// @dev ERC20
         string memory _name,
         string memory _symbol,
-        PriceLevel[] calldata _priceLevels,
-        address _convictionNFT
-    ) external payable;
+        /// @dev Evolution
+        TokenType _tokenType,
+        string memory _tokenURI,
+        PriceLevel[] calldata _priceLevels
+    ) external;
+
+    /// @notice Collects and reinvests LP fees back into the pool
+    /// @return wethAmount The amount of WETH reinvested into the pool
+    /// @return tokenAmount The amount of tokens reinvested into the pool
+    function harderrrrrrr() external returns (uint256 wethAmount, uint256 tokenAmount);
+
+    /// @notice Calculates the trading fee for a given amount
+    /// @param amount The amount to calculate the fee for
+    /// @return protocolFee The calculated fee
+    function calculateTradingFee(uint256 amount) external pure returns (uint256 protocolFee);
+
+    /// @notice Calculates the trading markup for a desired amount
+    /// @param desiredAmount The desired amount to calculate the markup for
+    /// @return protocolFee The calculated markup fee
+    function calculateTradingMarkup(uint256 desiredAmount) external pure returns (uint256 protocolFee);
 }

@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {LibClone} from "solady/src/utils/LibClone.sol";
+import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {Higherrrrrrr} from "./Higherrrrrrr.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 
 contract HigherrrrrrrFactory {
-    error Unauthorized();
+    using SafeTransferLib for address;
+    using FixedPointMathLib for uint256;
+
     error ZeroAddress();
 
     event NewToken(address indexed token, address indexed conviction);
@@ -17,31 +21,26 @@ contract HigherrrrrrrFactory {
     address public immutable weth;
     address public immutable nonfungiblePositionManager;
     address public immutable swapRouter;
-    address public immutable bondingCurve;
     address public immutable tokenImplementation;
     address public immutable convictionImplementation;
-
-    address[] public tokens;
 
     constructor(
         address _feeRecipient,
         address _weth,
         address _nonfungiblePositionManager,
         address _swapRouter,
-        address _bondingCurve,
         address _tokenImplementation,
         address _convictionImplementation
     ) {
         if (
             _feeRecipient == address(0) || _weth == address(0) || _nonfungiblePositionManager == address(0)
-                || _swapRouter == address(0) || _bondingCurve == address(0)
+                || _swapRouter == address(0)
         ) revert ZeroAddress();
 
         feeRecipient = _feeRecipient;
         weth = _weth;
         nonfungiblePositionManager = _nonfungiblePositionManager;
         swapRouter = _swapRouter;
-        bondingCurve = _bondingCurve;
 
         // Deploy the Conviction NFT implementation once
         tokenImplementation = _tokenImplementation;
@@ -49,63 +48,40 @@ contract HigherrrrrrrFactory {
     }
 
     function createHigherrrrrrr(
-        string calldata name,
-        string calldata symbol,
-        string calldata uri,
+        string calldata _name,
+        string calldata _symbol,
+        string calldata _baseTokenURI,
         IHigherrrrrrr.TokenType _tokenType,
-        IHigherrrrrrr.PriceLevel[] calldata levels
+        IHigherrrrrrr.PriceLevel[] calldata _priceLevels
     ) external payable returns (address token, address conviction) {
         bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
 
-        // Clone the Conviction NFT implementation
-        conviction = Clones.cloneDeterministic(convictionImplementation, salt);
-        // Deploy token
-        token = Clones.cloneDeterministic(tokenImplementation, salt);
-
-        IHigherrrrrrr(token).initialize{value: msg.value}(
-            feeRecipient,
+        // ==== Effects ====================================================
+        conviction = LibClone.cloneDeterministic(convictionImplementation, salt);
+        token = LibClone.cloneDeterministic(tokenImplementation, salt);
+        IHigherrrrrrr(token).initialize(
+            /// Constants from Factory
             weth,
+            conviction,
             nonfungiblePositionManager,
             swapRouter,
-            bondingCurve,
+            /// Fees
+            feeRecipient,
+            /// ERC20
+            _name,
+            _symbol,
+            /// Evolution
             _tokenType,
-            uri,
-            name,
-            symbol,
-            levels,
-            conviction
+            _baseTokenURI,
+            _priceLevels
         );
 
-        // Initialize the Conviction NFT clone
-        IHigherrrrrrrConviction(conviction).initialize(token);
-
-        tokens.push(token);
         emit NewToken(token, conviction);
-    }
 
-    function getTokensWithETHFeesAboveThreshold(uint128 threshold) public view returns (address[] memory) {
-        address[] memory tokensToCollect = new address[](tokens.length);
-        address token;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            token = tokens[i];
-            (uint128 ethOwed,) = IHigherrrrrrr(token).availableFees();
-            if (ethOwed >= threshold) {
-                tokensToCollect[i] = token;
-            }
+        if (msg.value > 0) {
+            IHigherrrrrrr(token).buy{value: msg.value}(
+                msg.sender, msg.sender, "Hello World", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0
+            );
         }
-        return tokensToCollect;
-    }
-
-    function collectFees(address[] memory tokensToCollect) public {
-        address token;
-        for (uint256 i = 0; i < tokensToCollect.length; i++) {
-            token = tokensToCollect[i];
-            if (token == address(0)) continue;
-            IHigherrrrrrr(token).collectFees();
-        }
-    }
-
-    function collectAllFees() external {
-        collectFees(tokens);
     }
 }

@@ -5,7 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import {Higherrrrrrr} from "../src/Higherrrrrrr.sol";
 import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
 import {HigherrrrrrrFactory} from "../src/HigherrrrrrrFactory.sol";
-import {BondingCurve} from "../src/BondingCurve.sol";
 import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
 
 contract DeployHigherrrrrrr is Script {
@@ -20,22 +19,17 @@ contract DeployHigherrrrrrr is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy BondingCurve
-        BondingCurve bondingCurve = new BondingCurve();
-
         // Deploy Factory with fake multisig
         HigherrrrrrrFactory factory = new HigherrrrrrrFactory(
             FAKE_MULTISIG,
             WETH,
             UNISWAP_V3_POSITION_MANAGER,
             UNISWAP_V3_ROUTER,
-            address(bondingCurve),
             address(new Higherrrrrrr()),
             address(new HigherrrrrrrConviction())
         );
 
         console.log("Deployed contracts:");
-        console.log("BondingCurve:", address(bondingCurve));
         console.log("Factory:", address(factory));
         console.log("Fee Recipient (Fake Multisig):", FAKE_MULTISIG);
 

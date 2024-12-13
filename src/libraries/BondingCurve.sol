@@ -3,15 +3,15 @@ pragma solidity ^0.8.23;
 
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
-contract BondingCurve {
+library BondingCurve {
     using FixedPointMathLib for uint256;
     using FixedPointMathLib for int256;
 
     error InsufficientLiquidity();
 
     // y = A*e^(Bx)
-    uint256 public immutable A = 1060848709;
-    uint256 public immutable B = 4379701787;
+    uint256 public constant A = 1060848709;
+    uint256 public constant B = 4379701787;
 
     function getEthSellQuote(uint256 currentSupply, uint256 ethOrderSize) external pure returns (uint256) {
         uint256 deltaY = ethOrderSize;

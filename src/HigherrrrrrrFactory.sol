@@ -76,6 +76,7 @@ contract HigherrrrrrrFactory {
             _baseTokenURI,
             _priceLevels
         );
+        IHigherrrrrrrConviction(conviction).initialize(token);
 
         emit NewToken(token, conviction);
 

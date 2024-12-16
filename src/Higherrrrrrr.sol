@@ -151,8 +151,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         // Create and initialize the Uniswap V3 pool
         poolAddress =
             nonfungiblePositionManager.createAndInitializePoolIfNecessary(token0, token1, LP_FEE, sqrtPriceX96);
-
-        IHigherrrrrrrConviction(convictionNFT).initialize(address(this));
     }
 
     /// ============================================

@@ -20,13 +20,15 @@ contract DeployHigherrrrrrr is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy Factory with fake multisig
+        Higherrrrrrr higherTokenImpl = new Higherrrrrrr();
+        HigherrrrrrrConviction higherConvictionImpl = new HigherrrrrrrConviction();
         HigherrrrrrrFactory factory = new HigherrrrrrrFactory(
             FAKE_MULTISIG,
             WETH,
             UNISWAP_V3_POSITION_MANAGER,
             UNISWAP_V3_ROUTER,
-            address(new Higherrrrrrr()),
-            address(new HigherrrrrrrConviction())
+            address(higherTokenImpl),
+            address(higherConvictionImpl)
         );
 
         console.log("Deployed contracts:");

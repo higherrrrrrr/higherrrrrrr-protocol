@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Script, console} from "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {Higherrrrrrr} from "../src/Higherrrrrrr.sol";
 import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
 import {HigherrrrrrrFactory} from "../src/HigherrrrrrrFactory.sol";
@@ -31,9 +31,9 @@ contract DeployHigherrrrrrr is Script {
             address(higherConvictionImpl)
         );
 
-        console.log("Deployed contracts:");
-        console.log("Factory:", address(factory));
-        console.log("Fee Recipient (Fake Multisig):", FAKE_MULTISIG);
+        console2.log("Deployed contracts:");
+        console2.log("Factory:", address(factory));
+        console2.log("Fee Recipient (Fake Multisig):", FAKE_MULTISIG);
 
         vm.stopBroadcast();
     }

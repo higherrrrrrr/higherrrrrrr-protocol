@@ -559,14 +559,14 @@ contract HigherrrrrrrTest is Test {
         token.buy{value: 0.5 ether}(user1, user1, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         // Deploy attacker
-        ReentrancyAttacker attacker = new ReentrancyAttacker(address(token));
+        address attacker = address(new ReentrancyAttacker(address(token)));
 
         // Transfer tokens to attacker
-        token.transfer(address(attacker), 1e18);
+        token.transfer(attacker, 1e18);
 
         // Attempt reentrancy attack
         vm.expectRevert();
-        token.sell(1e18, address(attacker), "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
+        token.sell(1e18, attacker, "", IHigherrrrrrr.MarketType.BONDING_CURVE, 0, 0);
 
         vm.stopPrank();
     }

@@ -214,9 +214,9 @@ interface IHigherrrrrrr {
 
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _weth The WETH token address
-    /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
+    /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _protocolFeeRecipient The address to receive fees
     /// @param _name The token name
     /// @param _symbol The token symbol
@@ -226,10 +226,11 @@ interface IHigherrrrrrr {
     function initialize(
         /// @dev Constants from Factory
         address _weth,
-        address _convictionNFT,
         address _nonfungiblePositionManager,
         address _swapRouter,
         address _protocolFeeRecipient,
+        /// @dev Conviction NFT
+        address _convictionNFT,
         /// @dev ERC20
         string memory _name,
         string memory _symbol,

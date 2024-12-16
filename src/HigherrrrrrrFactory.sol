@@ -54,7 +54,7 @@ contract HigherrrrrrrFactory {
         IHigherrrrrrr.TokenType _tokenType,
         IHigherrrrrrr.PriceLevel[] calldata _priceLevels
     ) external payable returns (address token, address conviction) {
-        bytes32 salt = keccak256(abi.encodePacked(token, block.timestamp));
+        bytes32 salt = keccak256(abi.encodePacked(_name, _symbol, _baseTokenURI, _tokenType, block.timestamp));
 
         // ==== Effects ====================================================
         conviction = LibClone.cloneDeterministic(convictionImplementation, salt);
@@ -62,9 +62,10 @@ contract HigherrrrrrrFactory {
         IHigherrrrrrr(token).initialize(
             /// Constants from Factory
             weth,
-            conviction,
             nonfungiblePositionManager,
             swapRouter,
+            /// Conviction NFT
+            conviction,
             /// Fees
             feeRecipient,
             /// ERC20

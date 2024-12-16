@@ -69,9 +69,9 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
 
     /// @notice Initializes a new Higherrrrrrr token
     /// @param _weth The WETH token address
-    /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _nonfungiblePositionManager The Uniswap V3 position manager address
     /// @param _swapRouter The Uniswap V3 router address
+    /// @param _convictionNFT The address of the conviction NFT contract
     /// @param _protocolFeeRecipient The address to receive fees
     /// @param _name The token name
     /// @param _symbol The token symbol
@@ -81,9 +81,10 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
     function initialize(
         /// @dev Constants from Factory
         address _weth,
-        address _convictionNFT,
         address _nonfungiblePositionManager,
         address _swapRouter,
+        /// @dev Conviction NFT
+        address _convictionNFT,
         /// @dev Fees
         address _protocolFeeRecipient,
         /// @dev ERC20
@@ -98,6 +99,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         if (_weth == address(0)) revert AddressZero("weth");
         if (_nonfungiblePositionManager == address(0)) revert AddressZero("nonfungiblePositionManager");
         if (_swapRouter == address(0)) revert AddressZero("swapRouter");
+        if (_convictionNFT == address(0)) revert AddressZero("convictionNFT");
         if (_protocolFeeRecipient == address(0)) revert AddressZero("protocolFeeRecipient");
 
         if (_priceLevels.length == 0) revert InvalidPriceLevels();
@@ -131,7 +133,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
 
         // Conviction NFT
         convictionNFT = _convictionNFT;
-        IHigherrrrrrrConviction(convictionNFT).initialize(address(this));
 
         // ==== Interactions ===============================================
         // Determine the token0, token1, and sqrtPriceX96 values for the Uniswap V3 pool
@@ -150,6 +151,8 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         // Create and initialize the Uniswap V3 pool
         poolAddress =
             nonfungiblePositionManager.createAndInitializePoolIfNecessary(token0, token1, LP_FEE, sqrtPriceX96);
+
+        IHigherrrrrrrConviction(convictionNFT).initialize(address(this));
     }
 
     /// ============================================
@@ -343,14 +346,14 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
 
             // Total cost is buying power + fee
             totalCost = ethNeeded + fee;
-
-            // Refund any excess ETH
-            if (msg.value > totalCost) {
-                refundRecipient.forceSafeTransferETH(msg.value - totalCost);
-            }
         }
 
         _mint(msg.sender, trueOrderSize);
+
+        // Refund any excess ETH
+        if (msg.value > totalCost) {
+            refundRecipient.forceSafeTransferETH(msg.value - totalCost);
+        }
 
         // Start the market if the order size equals the number of remaining tokens
         if (trueOrderSize != maxRemainingTokens) {
@@ -382,7 +385,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         // Burn the tokens from the seller
         _burn(account, tokensToSell);
 
-        fee = calculateTradingFee(truePayout);
+        fee = calculateTradingFee(totalEth);
         truePayout = totalEth - fee;
 
         protocolFeeRecipient.forceSafeTransferETH(fee);

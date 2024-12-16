@@ -9,8 +9,25 @@ library StringSanitizer {
     function sanitizeSVG(string memory input) internal pure returns (string memory) {
         bytes memory inputBytes = bytes(input);
 
-        // Pre-allocate maximum possible length (3x for worst case encoding)
-        bytes memory output = new bytes(inputBytes.length * 3);
+        // Calculate exact required length by scanning input first
+        uint256 requiredLength = 0;
+        for (uint256 i = 0; i < inputBytes.length; i++) {
+            bytes1 char = inputBytes[i];
+            if (char == "<" || char == ">") {
+                requiredLength += 4; // &lt; or &gt;
+            } else if (char == '"') {
+                requiredLength += 6; // &quot;
+            } else if (char == "'") {
+                requiredLength += 5; // &#39;
+            } else if (char == "&") {
+                requiredLength += 5; // &amp;
+            } else {
+                requiredLength += 1;
+            }
+        }
+
+        // Allocate exact size needed
+        bytes memory output = new bytes(requiredLength);
         uint256 outputIndex = 0;
 
         for (uint256 i = 0; i < inputBytes.length; i++) {
@@ -55,13 +72,7 @@ library StringSanitizer {
             }
         }
 
-        // Create final bytes array of exact length needed
-        bytes memory finalOutput = new bytes(outputIndex);
-        for (uint256 i = 0; i < outputIndex; i++) {
-            finalOutput[i] = output[i];
-        }
-
-        return string(finalOutput);
+        return string(output);
     }
 
     /// @notice Sanitizes string input for safe use in JSON contexts
@@ -71,8 +82,19 @@ library StringSanitizer {
     function sanitizeJSON(string memory input) internal pure returns (string memory) {
         bytes memory inputBytes = bytes(input);
 
-        // Pre-allocate maximum possible length (3x for worst case encoding)
-        bytes memory output = new bytes(inputBytes.length * 3);
+        // Count output length needed
+        uint256 outputLength = inputBytes.length;
+        for (uint256 i = 0; i < inputBytes.length; i++) {
+            bytes1 char = inputBytes[i];
+            if (
+                char == '"' || char == "\\" || char == "/" || uint8(char) == 0x08 || uint8(char) == 0x0C
+                    || uint8(char) == 0x0A || uint8(char) == 0x0D || uint8(char) == 0x09
+            ) {
+                outputLength++;
+            }
+        }
+
+        bytes memory output = new bytes(outputLength);
         uint256 outputIndex = 0;
 
         for (uint256 i = 0; i < inputBytes.length; i++) {
@@ -113,12 +135,6 @@ library StringSanitizer {
             }
         }
 
-        // Create final bytes array of exact length needed
-        bytes memory finalOutput = new bytes(outputIndex);
-        for (uint256 i = 0; i < outputIndex; i++) {
-            finalOutput[i] = output[i];
-        }
-
-        return string(finalOutput);
+        return string(output);
     }
 }

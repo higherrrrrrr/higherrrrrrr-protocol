@@ -725,13 +725,13 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             (tokenAmount, wethAmount) = (wethAmount, tokenAmount);
         }
 
+        if (tokenDust != 0) {
+            this.transfer(protocolFeeRecipient, tokenDust);
+        }
+
         if (wethDust != 0) {
             WETH.withdraw(wethDust);
             protocolFeeRecipient.forceSafeTransferETH(wethDust);
-        }
-
-        if (tokenDust != 0) {
-            this.transfer(protocolFeeRecipient, tokenDust);
         }
 
         return (wethAmount, tokenAmount);

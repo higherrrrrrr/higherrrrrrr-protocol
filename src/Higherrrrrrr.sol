@@ -344,6 +344,8 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
 
             // Total cost is buying power + fee
             totalCost = ethNeeded + fee;
+
+            if (totalCost > msg.value) revert InsufficientFunds();
         }
 
         _mint(msg.sender, trueOrderSize);
@@ -371,21 +373,24 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         private
         returns (uint256 totalEth, uint256 truePayout, uint256 fee)
     {
+        // ==== Checks ================================================
         // Get quote for the number of ETH that can be received for the number of tokens to sell
         totalEth = BondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
-
-        // Ensure the payout is greater than the minimum order size
-        if (totalEth < MIN_ORDER_SIZE) revert InsufficientFunds();
-
-        // Ensure the payout is greater than the minimum payout size
-        if (totalEth < minPayoutSize) revert SlippageBoundsExceeded();
-
-        // Burn the tokens from the seller
-        _burn(account, tokensToSell);
 
         fee = calculateTradingFee(totalEth);
         truePayout = totalEth - fee;
 
+        // Ensure the payout is greater than the minimum order size
+        if (truePayout < MIN_ORDER_SIZE) revert InsufficientFunds();
+
+        // Ensure the payout is greater than the minimum payout size
+        if (truePayout < minPayoutSize) revert SlippageBoundsExceeded();
+
+        // ==== Effects ===============================================
+        // Burn the tokens from the seller
+        _burn(account, tokensToSell);
+
+        // ==== Interactions ============================================
         protocolFeeRecipient.forceSafeTransferETH(fee);
         account.forceSafeTransferETH(truePayout);
 
@@ -698,8 +703,8 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         );
 
         if (isWETHToken1) {
-            this.approve(address(nonfungiblePositionManager), collectedToken0);
             address(WETH).safeApprove(address(nonfungiblePositionManager), collectedToken1);
+            this.approve(address(nonfungiblePositionManager), collectedToken0);
         } else {
             address(WETH).safeApprove(address(nonfungiblePositionManager), collectedToken0);
             this.approve(address(nonfungiblePositionManager), collectedToken1);
@@ -716,13 +721,18 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             })
         );
 
-        wethAmount = depositedToken0;
-        tokenAmount = depositedToken1;
-        uint256 wethDust = collectedToken0 - depositedToken0;
-        uint256 tokenDust = collectedToken1 - depositedToken1;
+        uint256 wethDust;
+        uint256 tokenDust;
         if (isWETHToken1) {
-            (tokenDust, wethDust) = (wethDust, tokenDust);
-            (tokenAmount, wethAmount) = (wethAmount, tokenAmount);
+            wethDust = collectedToken1 - depositedToken1;
+            tokenDust = collectedToken0 - depositedToken0;
+            wethAmount = depositedToken1;
+            tokenAmount = depositedToken0;
+        } else {
+            wethDust = collectedToken0 - depositedToken0;
+            tokenDust = collectedToken1 - depositedToken1;
+            wethAmount = depositedToken0;
+            tokenAmount = depositedToken1;
         }
 
         if (tokenDust != 0) {

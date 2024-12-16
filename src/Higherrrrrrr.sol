@@ -310,7 +310,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
     /// @dev Validates a bonding curve buy order and if necessary, recalculates the order data if the size is greater than the remaining supply
     function _bondingCurveBuy(address refundRecipient, uint256 minOrderSize)
         internal
-        returns (uint256 totalCost, uint256 trueOrderSize, uint256 fee, bool startMarket)
+        returns (uint256 totalCost, uint256 trueOrderSize, uint256 fee)
     {
         // Set the total cost to the amount of ETH sent
         totalCost = msg.value;
@@ -329,9 +329,6 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
 
         // Calculate the maximum number of tokens that can be bought
         uint256 maxRemainingTokens = PRIMARY_MARKET_SUPPLY - totalSupply();
-
-        // Start the market if the order size equals the number of remaining tokens
-        startMarket = trueOrderSize >= maxRemainingTokens;
 
         // If the order size is greater than the maximum number of remaining tokens:
         if (trueOrderSize > maxRemainingTokens) {
@@ -354,26 +351,44 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         }
 
         _mint(msg.sender, trueOrderSize);
+
+        // Start the market if the order size equals the number of remaining tokens
+        if (trueOrderSize != maxRemainingTokens) {
+            protocolFeeRecipient.forceSafeTransferETH(fee);
+        } else {
+            uint256 ethLiquidity = address(this).balance - fee;
+            (uint256 ethDust, uint256 tokenDust) = _graduateMarket(ethLiquidity);
+            if (tokenDust != 0) {
+                this.transfer(protocolFeeRecipient, tokenDust);
+            }
+            protocolFeeRecipient.forceSafeTransferETH(fee + ethDust);
+        }
     }
 
     /// @dev Handles a bonding curve sell order
     function _handleBondingCurveSell(address account, uint256 tokensToSell, uint256 minPayoutSize)
         private
-        returns (uint256 payout)
+        returns (uint256 totalEth, uint256 truePayout, uint256 fee)
     {
         // Get quote for the number of ETH that can be received for the number of tokens to sell
-        payout = BondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
-
-        // Ensure the payout is greater than the minimum payout size
-        if (payout < minPayoutSize) revert SlippageBoundsExceeded();
+        totalEth = BondingCurve.getTokenSellQuote(totalSupply(), tokensToSell);
 
         // Ensure the payout is greater than the minimum order size
-        if (payout < MIN_ORDER_SIZE) revert InsufficientFunds();
+        if (totalEth < MIN_ORDER_SIZE) revert InsufficientFunds();
+
+        // Ensure the payout is greater than the minimum payout size
+        if (totalEth < minPayoutSize) revert SlippageBoundsExceeded();
 
         // Burn the tokens from the seller
         _burn(account, tokensToSell);
 
-        return payout;
+        fee = calculateTradingFee(truePayout);
+        truePayout = totalEth - fee;
+
+        protocolFeeRecipient.forceSafeTransferETH(fee);
+        account.forceSafeTransferETH(truePayout);
+
+        return (totalEth, truePayout, fee);
     }
 
     /// @dev Graduates the market to a Uniswap V3 pool.
@@ -496,12 +511,14 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
                 sqrtPriceLimitX96: sqrtPriceLimitX96
             })
         );
+
+        protocolFeeRecipient.forceSafeTransferETH(fee);
     }
 
     /// @dev Handles a Uniswap V3 sell order
     function _uniswapSell(address account, uint256 tokensToSell, uint256 minPayoutSize, uint160 sqrtPriceLimitX96)
         private
-        returns (uint256 payout)
+        returns (uint256 totalEth, uint256 truePayout, uint256 fee)
     {
         // ==== Effects ===============================================
         // Transfer the tokens from the seller to this contract
@@ -512,7 +529,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
 
         // ==== Interactions ============================================
         // Execute the swap
-        payout = swapRouter.exactInputSingle(
+        totalEth = swapRouter.exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(this),
                 tokenOut: address(WETH),
@@ -524,9 +541,14 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             })
         );
 
-        WETH.withdraw(payout); // address(this).balance += payout
+        fee = calculateTradingFee(totalEth);
+        truePayout = totalEth - fee;
 
-        return payout;
+        WETH.withdraw(totalEth);
+        protocolFeeRecipient.forceSafeTransferETH(fee);
+        account.forceSafeTransferETH(truePayout);
+
+        return (totalEth, truePayout, fee);
     }
 
     /// ====================================================
@@ -553,7 +575,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         MarketType expectedMarketType,
         uint256 minOrderSize,
         uint160 sqrtPriceLimitX96
-    ) public payable nonReentrant returns (uint256 trueOrderSize) {
+    ) public payable nonReentrant returns (uint256) {
         // ==== Checks =====================================================
         // Ensure the order size is greater than the minimum order size
         if (msg.value < MIN_ORDER_SIZE) revert InsufficientFunds();
@@ -562,27 +584,14 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         // Ensure the market type is expected
         if (marketType != expectedMarketType) revert InvalidMarketType();
 
-        uint256 fee;
         uint256 totalCost;
-
+        uint256 trueOrderSize;
+        uint256 fee;
         if (marketType == MarketType.BONDING_CURVE) {
-            bool shouldGraduateMarket;
-            // Validate the order data
-            (totalCost, trueOrderSize, fee, shouldGraduateMarket) = _bondingCurveBuy(refundRecipient, minOrderSize);
-
-            if (!shouldGraduateMarket) {
-                protocolFeeRecipient.forceSafeTransferETH(fee);
-            } else {
-                uint256 ethLiquidity = address(this).balance - fee;
-                (uint256 ethDust, uint256 tokenDust) = _graduateMarket(ethLiquidity);
-                if (tokenDust != 0) {
-                    this.transfer(protocolFeeRecipient, tokenDust);
-                }
-                protocolFeeRecipient.forceSafeTransferETH(fee + ethDust);
-            }
+            // Will handle graduating the market after minting when necessary
+            (totalCost, trueOrderSize, fee) = _bondingCurveBuy(refundRecipient, minOrderSize);
         } else {
             (totalCost, trueOrderSize, fee) = _uniswapBuy(recipient, minOrderSize, sqrtPriceLimitX96);
-            protocolFeeRecipient.forceSafeTransferETH(fee);
         }
 
         emit HigherrrrrrTokenBuy(
@@ -630,26 +639,21 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
         // Ensure the recipient is not the zero address
         if (recipient == address(0)) revert AddressZero("recipient");
 
-        uint256 payout;
+        uint256 totalEth;
+        uint256 truePayout;
+        uint256 fee;
         if (marketType == MarketType.BONDING_CURVE) {
-            payout = _handleBondingCurveSell(msg.sender, tokensToSell, minPayoutSize);
+            (totalEth, truePayout, fee) = _handleBondingCurveSell(msg.sender, tokensToSell, minPayoutSize);
         } else {
-            payout = _uniswapSell(msg.sender, tokensToSell, minPayoutSize, sqrtPriceLimitX96);
+            (totalEth, truePayout, fee) = _uniswapSell(msg.sender, tokensToSell, minPayoutSize, sqrtPriceLimitX96);
         }
-
-        // Handle the fees
-        uint256 fee = calculateTradingFee(payout);
-        protocolFeeRecipient.forceSafeTransferETH(fee);
-        // Calculate the payout after the fee
-        uint256 payoutAfterFee = payout - fee;
-        msg.sender.forceSafeTransferETH(payoutAfterFee);
 
         emit HigherrrrrrTokenSell(
             msg.sender,
             recipient,
-            payout,
+            totalEth,
             fee,
-            payoutAfterFee,
+            truePayout,
             tokensToSell,
             balanceOf(recipient),
             comment,
@@ -657,7 +661,7 @@ contract Higherrrrrrr is IHigherrrrrrr, IERC721TokenReceiver, ERC20, ReentrancyG
             marketType
         );
 
-        return payoutAfterFee;
+        return truePayout;
     }
 
     /// @notice Burns tokens after the market has graduated to Uniswap V3

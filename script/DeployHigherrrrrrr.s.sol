@@ -29,7 +29,7 @@ contract DeployHigherrrrrrr is Script {
         console2.log("Deployed contracts:");
         console2.log("Higherrrrrrr:", address(token));
         console2.log("HigherrrrrrrConviction:", address(conviction));
-        console2.log("Factory:", address(factory));
+        console2.log("HigherrrrrrrFactory:", address(factory));
         console2.log("Fee Recipient:", MULTISIG);
 
         vm.stopBroadcast();

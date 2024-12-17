@@ -13,7 +13,7 @@ contract DeployHigherrrrrrr is Script {
     address constant UNISWAP_V3_POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
     address constant UNISWAP_V3_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
 
-    address constant FAKE_MULTISIG = 0xb28E6b4e296Ef139Bc245c9bc8771998dD9A1d6A;
+    address constant MULTISIG = 0xb28E6b4e296Ef139Bc245c9bc8771998dD9A1d6A;
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -23,7 +23,7 @@ contract DeployHigherrrrrrr is Script {
         Higherrrrrrr higherTokenImpl = new Higherrrrrrr();
         HigherrrrrrrConviction higherConvictionImpl = new HigherrrrrrrConviction();
         HigherrrrrrrFactory factory = new HigherrrrrrrFactory(
-            FAKE_MULTISIG,
+            MULTISIG,
             WETH,
             UNISWAP_V3_POSITION_MANAGER,
             UNISWAP_V3_ROUTER,
@@ -32,8 +32,10 @@ contract DeployHigherrrrrrr is Script {
         );
 
         console2.log("Deployed contracts:");
+        console2.log("Higherrrrrrr:", address(higherTokenImpl));
+        console2.log("HigherrrrrrrConviction:", address(higherConvictionImpl));
         console2.log("Factory:", address(factory));
-        console2.log("Fee Recipient (Fake Multisig):", FAKE_MULTISIG);
+        console2.log("Fee Recipient:", MULTISIG);
 
         vm.stopBroadcast();
     }

@@ -14,7 +14,9 @@ contract HigherrrrrrrFactory {
 
     error ZeroAddress();
 
-    event NewToken(address indexed token, address indexed conviction);
+    event NewToken(
+        address indexed token, address indexed conviction, string name, string symbol, IHigherrrrrrr.TokenType tokenType
+    );
 
     // Keep individual immutable addresses
     address public immutable feeRecipient;
@@ -78,7 +80,7 @@ contract HigherrrrrrrFactory {
         );
         IHigherrrrrrrConviction(conviction).initialize(token);
 
-        emit NewToken(token, conviction);
+        emit NewToken(token, conviction, _name, _symbol, _tokenType);
 
         if (msg.value > 0) {
             IHigherrrrrrr(token).buy{value: msg.value}(

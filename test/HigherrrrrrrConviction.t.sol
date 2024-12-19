@@ -3,11 +3,12 @@ pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {Base64} from "solady/src/utils/Base64.sol";
-import {LibString} from "solady/src/utils/LibString.sol";
-import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
-import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
-import {StringSanitizer} from "../src/libraries/StringSanitizer.sol";
+import {Base64} from "solady/utils/Base64.sol";
+import {LibString} from "solady/utils/LibString.sol";
+
+import {HigherrrrrrrConviction} from "src/HigherrrrrrrConviction.sol";
+import {IHigherrrrrrr} from "src/interfaces/IHigherrrrrrr.sol";
+import {StringSanitizer} from "src/libraries/StringSanitizer.sol";
 
 struct Attribute {
     string trait_type;

@@ -2,17 +2,17 @@
 pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Higherrrrrrr} from "../src/Higherrrrrrr.sol";
-import {HigherrrrrrrConviction} from "../src/HigherrrrrrrConviction.sol";
-import {HigherrrrrrrFactory} from "../src/HigherrrrrrrFactory.sol";
-import {BondingCurve} from "../src/libraries/BondingCurve.sol";
-import {IHigherrrrrrr} from "../src/interfaces/IHigherrrrrrr.sol";
-import {IWETH} from "../src/interfaces/IWETH.sol";
-import {IUniswapV3Pool} from "../src/interfaces/IUniswapV3Pool.sol";
-import {ISwapRouter} from "../src/interfaces/ISwapRouter.sol";
-import {INonfungiblePositionManager} from "../src/interfaces/INonfungiblePositionManager.sol";
+import {Higherrrrrrr} from "src/Higherrrrrrr.sol";
+import {HigherrrrrrrConviction} from "src/HigherrrrrrrConviction.sol";
+import {HigherrrrrrrFactory} from "src/HigherrrrrrrFactory.sol";
+import {BondingCurve} from "src/libraries/BondingCurve.sol";
+import {IHigherrrrrrr} from "src/interfaces/IHigherrrrrrr.sol";
+import {IWETH} from "src/interfaces/IWETH.sol";
+import {IUniswapV3Pool} from "src/interfaces/IUniswapV3Pool.sol";
+import {ISwapRouter} from "src/interfaces/ISwapRouter.sol";
+import {INonfungiblePositionManager} from "src/interfaces/INonfungiblePositionManager.sol";
 
 import {ReentrancyAttacker} from "./helpers/ReentrancyAttacker.sol";
 

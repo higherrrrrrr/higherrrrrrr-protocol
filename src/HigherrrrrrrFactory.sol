@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {LibClone} from "solady/src/utils/LibClone.sol";
-import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
-import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
+
 import {Higherrrrrrr} from "./Higherrrrrrr.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
 import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";

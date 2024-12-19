@@ -2,11 +2,11 @@
 pragma solidity ^0.8.23;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {Base64} from "solady/src/utils/Base64.sol";
-import {LibString} from "solady/src/utils/LibString.sol";
-import {Ownable} from "solady/src/auth/Ownable.sol";
-import {ERC721} from "solady/src/tokens/ERC721.sol";
-import {Initializable} from "solady/src/utils/Initializable.sol";
+import {Base64} from "solady/utils/Base64.sol";
+import {LibString} from "solady/utils/LibString.sol";
+import {Ownable} from "solady/auth/Ownable.sol";
+import {ERC721} from "solady/tokens/ERC721.sol";
+import {Initializable} from "solady/utils/Initializable.sol";
 
 import {IHigherrrrrrrConviction} from "./interfaces/IHigherrrrrrrConviction.sol";
 import {IHigherrrrrrr} from "./interfaces/IHigherrrrrrr.sol";
